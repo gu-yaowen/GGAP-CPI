@@ -1,0 +1,782 @@
+INFO - 10/10/23 01:45:33 - 0:00:00 - ============ Initialized logger ============
+INFO - 10/10/23 01:45:33 - 0:00:00 - activation: ReLU
+                                     atom_messages: False
+                                     batch_size: 256
+                                     bias: False
+                                     checkpoint_dir: None
+                                     checkpoint_path: ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+                                     checkpoint_paths: ['./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl']
+                                     command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl' --exp_id "bbbp_test"
+                                     config_path: None
+                                     crossval_index_dir: None
+                                     crossval_index_file: None
+                                     cuda: True
+                                     data_path: ./data/bbbp.csv
+                                     dataset_type: classification
+                                     depth: 3
+                                     dropout: 0.0
+                                     dump_path: dumped
+                                     encoder_name: CMPNN
+                                     ensemble_size: 1
+                                     epochs: 100
+                                     exp_id: bbbp_test
+                                     exp_name: finetune
+                                     features_generator: None
+                                     features_only: False
+                                     features_path: None
+                                     features_scaling: True
+                                     ffn_hidden_size: 300
+                                     ffn_num_layers: 2
+                                     final_lr: 0.0001
+                                     folds_file: None
+                                     gpu: 0
+                                     hidden_size: 300
+                                     init_lr: 0.0001
+                                     log_frequency: 10
+                                     max_data_size: None
+                                     max_lr: 0.001
+                                     metric: auc
+                                     minimize_score: False
+                                     multiclass_num_classes: 3
+                                     no_cache: False
+                                     num_lrs: 1
+                                     num_runs: 1
+                                     quiet: False
+                                     save_dir: ./ckpt
+                                     save_smiles_splits: False
+                                     seed: 43
+                                     separate_test_features_path: None
+                                     separate_test_path: None
+                                     separate_val_features_path: None
+                                     separate_val_path: None
+                                     show_individual_scores: False
+                                     split_sizes: [0.8, 0.1, 0.1]
+                                     split_type: scaffold_balanced
+                                     step: functional_prompt
+                                     temperature: 0.1
+                                     test: False
+                                     test_fold_index: None
+                                     undirected: False
+                                     use_compound_names: False
+                                     use_input_features: None
+                                     val_fold_index: None
+                                     warmup_epochs: 2.0
+INFO - 10/10/23 01:45:34 - 0:00:00 - ========================
+                                     # Git Version: 6372f52 #
+                                     ========================
+INFO - 10/10/23 01:45:34 - 0:00:00 - The experiment will be stored in dumped\1010-finetune\bbbp_test
+                                     
+INFO - 10/10/23 01:45:34 - 0:00:00 - Running command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl'
+
+INFO - 10/10/23 01:45:34 - 0:00:00 - Run 0
+INFO - 10/10/23 01:45:34 - 0:00:00 - Loading data
+INFO - 10/10/23 01:45:34 - 0:00:00 - Number of tasks = 1
+DEBUG - 10/10/23 01:45:34 - 0:00:00 - Splitting data with seed 43
+DEBUG - 10/10/23 01:45:34 - 0:00:00 - Total scaffolds = 1,025 | train scaffolds = 782 | val scaffolds = 119 | test scaffolds = 124
+INFO - 10/10/23 01:45:49 - 0:00:00 - ============ Initialized logger ============
+INFO - 10/10/23 01:45:49 - 0:00:00 - activation: ReLU
+                                     atom_messages: False
+                                     batch_size: 256
+                                     bias: False
+                                     checkpoint_dir: None
+                                     checkpoint_path: ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+                                     checkpoint_paths: ['./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl']
+                                     command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl' --exp_id "bbbp_test"
+                                     config_path: None
+                                     crossval_index_dir: None
+                                     crossval_index_file: None
+                                     cuda: True
+                                     data_path: ./data/bbbp.csv
+                                     dataset_type: classification
+                                     depth: 3
+                                     dropout: 0.0
+                                     dump_path: dumped
+                                     encoder_name: CMPNN
+                                     ensemble_size: 1
+                                     epochs: 100
+                                     exp_id: bbbp_test
+                                     exp_name: finetune
+                                     features_generator: None
+                                     features_only: False
+                                     features_path: None
+                                     features_scaling: True
+                                     ffn_hidden_size: 300
+                                     ffn_num_layers: 2
+                                     final_lr: 0.0001
+                                     folds_file: None
+                                     gpu: 0
+                                     hidden_size: 300
+                                     init_lr: 0.0001
+                                     log_frequency: 10
+                                     max_data_size: None
+                                     max_lr: 0.001
+                                     metric: auc
+                                     minimize_score: False
+                                     multiclass_num_classes: 3
+                                     no_cache: False
+                                     num_lrs: 1
+                                     num_runs: 1
+                                     quiet: False
+                                     save_dir: ./ckpt
+                                     save_smiles_splits: False
+                                     seed: 43
+                                     separate_test_features_path: None
+                                     separate_test_path: None
+                                     separate_val_features_path: None
+                                     separate_val_path: None
+                                     show_individual_scores: False
+                                     split_sizes: [0.8, 0.1, 0.1]
+                                     split_type: scaffold_balanced
+                                     step: functional_prompt
+                                     temperature: 0.1
+                                     test: False
+                                     test_fold_index: None
+                                     undirected: False
+                                     use_compound_names: False
+                                     use_input_features: None
+                                     val_fold_index: None
+                                     warmup_epochs: 2.0
+INFO - 10/10/23 01:45:49 - 0:00:00 - ========================
+                                     # Git Version: 6372f52 #
+                                     ========================
+INFO - 10/10/23 01:45:49 - 0:00:00 - The experiment will be stored in dumped\1010-finetune\bbbp_test
+                                     
+INFO - 10/10/23 01:45:49 - 0:00:00 - Running command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl'
+
+INFO - 10/10/23 01:45:49 - 0:00:00 - Run 0
+INFO - 10/10/23 01:45:49 - 0:00:00 - Loading data
+INFO - 10/10/23 01:45:50 - 0:00:00 - Number of tasks = 1
+DEBUG - 10/10/23 01:45:50 - 0:00:00 - Splitting data with seed 43
+DEBUG - 10/10/23 01:45:50 - 0:00:00 - Total scaffolds = 1,025 | train scaffolds = 782 | val scaffolds = 119 | test scaffolds = 124
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Label averages per scaffold, in decreasing order of scaffold frequency,capped at 10 scaffolds and 20 labels: [(array([0.72992701]), array([137], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64))]
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Class sizes
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - p_np 0: 23.49%, 1: 76.51%
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Total size = 2,039 | train size = 1,631 | val size = 203 | test size = 205
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Loading model from ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - MoleculeModel(
+                                        (sigmoid): Sigmoid()
+                                        (encoder): CMPN(
+                                          (encoder): CMPNEncoder(
+                                            (dropout_layer): Dropout(p=0.0, inplace=False)
+                                            (act_func): ReLU()
+                                            (W_i_atom): PromptGeneratorOutput(
+                                              (self_out): Linear(in_features=133, out_features=300, bias=False)
+                                              (prompt_generator): Prompt_generator(
+                                                (linear): Linear(in_features=133, out_features=300, bias=True)
+                                                (attention_layer_1): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (attention_layer_2): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+                                              )
+                                            )
+                                            (W_i_bond): Linear(in_features=147, out_features=300, bias=False)
+                                            (W_h_atom): Linear(in_features=447, out_features=300, bias=False)
+                                            (W_h_0): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_h_1): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_o): Linear(in_features=600, out_features=300, bias=True)
+                                            (gru): BatchGRU(
+                                              (gru): GRU(300, 300, batch_first=True, bidirectional=True)
+                                            )
+                                            (lr): Linear(in_features=900, out_features=300, bias=False)
+                                            (W_i_atom_new): Linear(in_features=266, out_features=300, bias=False)
+                                          )
+                                        )
+                                        (ffn): Sequential(
+                                          (0): Dropout(p=0.0, inplace=False)
+                                          (1): Linear(in_features=300, out_features=300, bias=True)
+                                          (2): ReLU()
+                                          (3): Dropout(p=0.0, inplace=False)
+                                          (4): Linear(in_features=300, out_features=1, bias=True)
+                                        )
+                                      )
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Number of parameters = 2,178,806
+DEBUG - 10/10/23 01:45:50 - 0:00:01 - Moving model to cuda
+INFO - 10/10/23 03:30:14 - 0:00:00 - ============ Initialized logger ============
+INFO - 10/10/23 03:30:14 - 0:00:00 - activation: ReLU
+                                     atom_messages: False
+                                     batch_size: 256
+                                     bias: False
+                                     checkpoint_dir: None
+                                     checkpoint_path: ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+                                     checkpoint_paths: ['./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl']
+                                     command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl' --exp_id "bbbp_test"
+                                     config_path: None
+                                     crossval_index_dir: None
+                                     crossval_index_file: None
+                                     cuda: True
+                                     data_path: ./data/bbbp.csv
+                                     dataset_type: classification
+                                     depth: 3
+                                     dropout: 0.0
+                                     dump_path: dumped
+                                     encoder_name: CMPNN
+                                     ensemble_size: 1
+                                     epochs: 100
+                                     exp_id: bbbp_test
+                                     exp_name: finetune
+                                     features_generator: None
+                                     features_only: False
+                                     features_path: None
+                                     features_scaling: True
+                                     ffn_hidden_size: 300
+                                     ffn_num_layers: 2
+                                     final_lr: 0.0001
+                                     folds_file: None
+                                     gpu: 0
+                                     hidden_size: 300
+                                     init_lr: 0.0001
+                                     log_frequency: 10
+                                     max_data_size: None
+                                     max_lr: 0.001
+                                     metric: auc
+                                     minimize_score: False
+                                     multiclass_num_classes: 3
+                                     no_cache: False
+                                     num_lrs: 1
+                                     num_runs: 1
+                                     quiet: False
+                                     save_dir: ./ckpt
+                                     save_smiles_splits: False
+                                     seed: 43
+                                     separate_test_features_path: None
+                                     separate_test_path: None
+                                     separate_val_features_path: None
+                                     separate_val_path: None
+                                     show_individual_scores: False
+                                     split_sizes: [0.8, 0.1, 0.1]
+                                     split_type: scaffold_balanced
+                                     step: functional_prompt
+                                     temperature: 0.1
+                                     test: False
+                                     test_fold_index: None
+                                     undirected: False
+                                     use_compound_names: False
+                                     use_input_features: None
+                                     val_fold_index: None
+                                     warmup_epochs: 2.0
+INFO - 10/10/23 03:30:14 - 0:00:00 - ========================
+                                     # Git Version: 6372f52 #
+                                     ========================
+INFO - 10/10/23 03:30:14 - 0:00:00 - The experiment will be stored in dumped\1010-finetune\bbbp_test
+                                     
+INFO - 10/10/23 03:30:14 - 0:00:00 - Running command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl'
+
+INFO - 10/10/23 03:30:14 - 0:00:00 - Run 0
+INFO - 10/10/23 03:30:14 - 0:00:00 - Loading data
+INFO - 10/10/23 03:30:14 - 0:00:00 - Number of tasks = 1
+DEBUG - 10/10/23 03:30:14 - 0:00:00 - Splitting data with seed 43
+DEBUG - 10/10/23 03:30:14 - 0:00:00 - Total scaffolds = 1,025 | train scaffolds = 782 | val scaffolds = 119 | test scaffolds = 124
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Label averages per scaffold, in decreasing order of scaffold frequency,capped at 10 scaffolds and 20 labels: [(array([0.72992701]), array([137], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64))]
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Class sizes
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - p_np 0: 23.49%, 1: 76.51%
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Total size = 2,039 | train size = 1,631 | val size = 203 | test size = 205
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Loading model from ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - MoleculeModel(
+                                        (sigmoid): Sigmoid()
+                                        (encoder): CMPN(
+                                          (encoder): CMPNEncoder(
+                                            (dropout_layer): Dropout(p=0.0, inplace=False)
+                                            (act_func): ReLU()
+                                            (W_i_atom): PromptGeneratorOutput(
+                                              (self_out): Linear(in_features=133, out_features=300, bias=False)
+                                              (prompt_generator): Prompt_generator(
+                                                (linear): Linear(in_features=133, out_features=300, bias=True)
+                                                (attention_layer_1): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (attention_layer_2): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+                                              )
+                                            )
+                                            (W_i_bond): Linear(in_features=147, out_features=300, bias=False)
+                                            (W_h_atom): Linear(in_features=447, out_features=300, bias=False)
+                                            (W_h_0): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_h_1): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_o): Linear(in_features=600, out_features=300, bias=True)
+                                            (gru): BatchGRU(
+                                              (gru): GRU(300, 300, batch_first=True, bidirectional=True)
+                                            )
+                                            (lr): Linear(in_features=900, out_features=300, bias=False)
+                                            (W_i_atom_new): Linear(in_features=266, out_features=300, bias=False)
+                                          )
+                                        )
+                                        (ffn): Sequential(
+                                          (0): Dropout(p=0.0, inplace=False)
+                                          (1): Linear(in_features=300, out_features=300, bias=True)
+                                          (2): ReLU()
+                                          (3): Dropout(p=0.0, inplace=False)
+                                          (4): Linear(in_features=300, out_features=1, bias=True)
+                                        )
+                                      )
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Number of parameters = 2,178,806
+DEBUG - 10/10/23 03:30:14 - 0:00:01 - Moving model to cuda
+INFO - 10/10/23 03:30:17 - 0:00:03 - Epoch 0
+INFO - 10/10/23 03:30:21 - 0:00:08 - Validation auc = 0.885006
+INFO - 10/10/23 03:30:22 - 0:00:08 - test auc = 0.858718
+INFO - 10/10/23 03:30:22 - 0:00:08 - Epoch 1
+INFO - 10/10/23 03:30:26 - 0:00:12 - Validation auc = 0.923546
+INFO - 10/10/23 03:30:26 - 0:00:13 - test auc = 0.907128
+INFO - 10/10/23 03:30:26 - 0:00:13 - Epoch 2
+INFO - 10/10/23 03:30:30 - 0:00:17 - Validation auc = 0.935819
+INFO - 10/10/23 03:30:31 - 0:00:17 - test auc = 0.922220
+INFO - 10/10/23 03:30:31 - 0:00:17 - Epoch 3
+INFO - 10/10/23 03:30:35 - 0:00:22 - Validation auc = 0.944575
+INFO - 10/10/23 03:30:35 - 0:00:22 - test auc = 0.937079
+INFO - 10/10/23 03:30:35 - 0:00:22 - Epoch 4
+INFO - 10/10/23 03:30:40 - 0:00:26 - Validation auc = 0.957395
+INFO - 10/10/23 03:30:40 - 0:00:27 - test auc = 0.942187
+INFO - 10/10/23 03:30:40 - 0:00:27 - Epoch 5
+INFO - 10/10/23 03:30:44 - 0:00:31 - Validation auc = 0.970059
+INFO - 10/10/23 03:30:45 - 0:00:31 - test auc = 0.949965
+INFO - 10/10/23 03:30:45 - 0:00:31 - Epoch 6
+INFO - 10/10/23 03:30:49 - 0:00:36 - Validation auc = 0.975219
+INFO - 10/10/23 03:30:49 - 0:00:36 - test auc = 0.947179
+INFO - 10/10/23 03:30:49 - 0:00:36 - Epoch 7
+INFO - 10/10/23 03:30:54 - 0:00:40 - Validation auc = 0.972795
+INFO - 10/10/23 03:30:54 - 0:00:41 - test auc = 0.948456
+INFO - 10/10/23 03:30:54 - 0:00:41 - Epoch 8
+INFO - 10/10/23 03:30:58 - 0:00:45 - Validation auc = 0.966932
+INFO - 10/10/23 03:30:59 - 0:00:45 - test auc = 0.949501
+INFO - 10/10/23 03:30:59 - 0:00:45 - Epoch 9
+INFO - 10/10/23 03:31:03 - 0:00:50 - Validation auc = 0.963258
+INFO - 10/10/23 03:31:03 - 0:00:50 - test auc = 0.951707
+INFO - 10/10/23 03:31:03 - 0:00:50 - Epoch 10
+INFO - 10/10/23 03:31:08 - 0:00:54 - Validation auc = 0.951532
+INFO - 10/10/23 03:31:08 - 0:00:54 - test auc = 0.952867
+INFO - 10/10/23 03:31:08 - 0:00:54 - Epoch 11
+INFO - 10/10/23 03:31:12 - 0:00:59 - Validation auc = 0.963649
+INFO - 10/10/23 03:31:13 - 0:00:59 - test auc = 0.954377
+INFO - 10/10/23 03:31:13 - 0:00:59 - Epoch 12
+INFO - 10/10/23 03:31:17 - 0:01:04 - Validation auc = 0.957786
+INFO - 10/10/23 03:31:17 - 0:01:04 - test auc = 0.957743
+INFO - 10/10/23 03:31:17 - 0:01:04 - Epoch 13
+INFO - 10/10/23 03:31:22 - 0:01:08 - Validation auc = 0.956770
+INFO - 10/10/23 03:31:22 - 0:01:08 - test auc = 0.958904
+INFO - 10/10/23 03:31:22 - 0:01:08 - Epoch 14
+INFO - 10/10/23 03:31:27 - 0:01:13 - Validation auc = 0.952627
+INFO - 10/10/23 03:31:27 - 0:01:13 - test auc = 0.954377
+INFO - 10/10/23 03:31:27 - 0:01:13 - Epoch 15
+INFO - 10/10/23 03:31:31 - 0:01:18 - Validation auc = 0.954581
+INFO - 10/10/23 03:31:31 - 0:01:18 - test auc = 0.959485
+INFO - 10/10/23 03:31:31 - 0:01:18 - Epoch 16
+INFO - 10/10/23 03:31:36 - 0:01:22 - Validation auc = 0.953799
+INFO - 10/10/23 03:31:36 - 0:01:22 - test auc = 0.953100
+INFO - 10/10/23 03:31:36 - 0:01:22 - Epoch 17
+INFO - 10/10/23 03:31:40 - 0:01:27 - Validation auc = 0.945669
+INFO - 10/10/23 03:31:40 - 0:01:27 - test auc = 0.957395
+INFO - 10/10/23 03:31:40 - 0:01:27 - Epoch 18
+INFO - 10/10/23 03:31:45 - 0:01:31 - Validation auc = 0.948952
+INFO - 10/10/23 03:31:45 - 0:01:32 - test auc = 0.962851
+INFO - 10/10/23 03:31:45 - 0:01:32 - Epoch 19
+INFO - 10/10/23 03:31:50 - 0:01:36 - Validation auc = 0.935507
+INFO - 10/10/23 03:31:50 - 0:01:37 - test auc = 0.964012
+INFO - 10/10/23 03:31:50 - 0:01:37 - Epoch 20
+INFO - 10/10/23 03:31:54 - 0:01:41 - Validation auc = 0.942073
+INFO - 10/10/23 03:31:55 - 0:01:41 - test auc = 0.962735
+INFO - 10/10/23 03:31:55 - 0:01:41 - Epoch 21
+INFO - 10/10/23 03:31:59 - 0:01:46 - Validation auc = 0.955363
+INFO - 10/10/23 03:31:59 - 0:01:46 - test auc = 0.956002
+INFO - 10/10/23 03:31:59 - 0:01:46 - Epoch 22
+INFO - 10/10/23 03:32:04 - 0:01:50 - Validation auc = 0.945356
+INFO - 10/10/23 03:32:04 - 0:01:51 - test auc = 0.959368
+INFO - 10/10/23 03:32:04 - 0:01:51 - Epoch 23
+INFO - 10/10/23 03:32:09 - 0:01:55 - Validation auc = 0.948952
+INFO - 10/10/23 03:32:09 - 0:01:55 - test auc = 0.958672
+INFO - 10/10/23 03:32:09 - 0:01:55 - Epoch 24
+INFO - 10/10/23 03:32:13 - 0:02:00 - Validation auc = 0.942542
+INFO - 10/10/23 03:32:14 - 0:02:00 - test auc = 0.953796
+INFO - 10/10/23 03:32:14 - 0:02:00 - Epoch 25
+INFO - 10/10/23 03:32:18 - 0:02:04 - Validation auc = 0.935507
+INFO - 10/10/23 03:32:18 - 0:02:05 - test auc = 0.954609
+INFO - 10/10/23 03:32:18 - 0:02:05 - Epoch 26
+INFO - 10/10/23 03:32:23 - 0:02:09 - Validation auc = 0.943089
+INFO - 10/10/23 03:32:23 - 0:02:09 - test auc = 0.957453
+INFO - 10/10/23 03:32:23 - 0:02:09 - Epoch 27
+INFO - 10/10/23 03:32:27 - 0:02:14 - Validation auc = 0.943637
+INFO - 10/10/23 03:32:28 - 0:02:14 - test auc = 0.957395
+INFO - 10/10/23 03:32:28 - 0:02:14 - Epoch 28
+INFO - 10/10/23 03:32:32 - 0:02:19 - Validation auc = 0.933709
+INFO - 10/10/23 03:32:32 - 0:02:19 - test auc = 0.958091
+INFO - 10/10/23 03:32:32 - 0:02:19 - Epoch 29
+INFO - 10/10/23 03:32:37 - 0:02:23 - Validation auc = 0.931442
+INFO - 10/10/23 03:32:37 - 0:02:24 - test auc = 0.950894
+INFO - 10/10/23 03:32:37 - 0:02:24 - Epoch 30
+INFO - 10/10/23 03:32:42 - 0:02:28 - Validation auc = 0.928393
+INFO - 10/10/23 03:32:42 - 0:02:28 - test auc = 0.951532
+INFO - 10/10/23 03:32:42 - 0:02:28 - Epoch 31
+INFO - 10/10/23 03:32:46 - 0:02:33 - Validation auc = 0.927455
+INFO - 10/10/23 03:32:47 - 0:02:33 - test auc = 0.955596
+INFO - 10/10/23 03:32:47 - 0:02:33 - Epoch 32
+INFO - 10/10/23 03:32:51 - 0:02:37 - Validation auc = 0.923702
+INFO - 10/10/23 03:32:51 - 0:02:38 - test auc = 0.956582
+INFO - 10/10/23 03:32:51 - 0:02:38 - Epoch 33
+INFO - 10/10/23 03:32:56 - 0:02:42 - Validation auc = 0.928236
+INFO - 10/10/23 03:32:56 - 0:02:42 - test auc = 0.955073
+INFO - 10/10/23 03:32:56 - 0:02:42 - Epoch 34
+INFO - 10/10/23 03:33:00 - 0:02:47 - Validation auc = 0.931598
+INFO - 10/10/23 03:33:00 - 0:02:47 - test auc = 0.960181
+INFO - 10/10/23 03:33:00 - 0:02:47 - Epoch 35
+INFO - 10/10/23 03:33:05 - 0:02:51 - Validation auc = 0.928315
+INFO - 10/10/23 03:33:05 - 0:02:52 - test auc = 0.961690
+INFO - 10/10/23 03:33:05 - 0:02:52 - Epoch 36
+INFO - 10/10/23 03:33:10 - 0:02:56 - Validation auc = 0.923233
+INFO - 10/10/23 03:33:10 - 0:02:56 - test auc = 0.951823
+INFO - 10/10/23 03:33:10 - 0:02:56 - Epoch 37
+INFO - 10/10/23 03:33:14 - 0:03:01 - Validation auc = 0.930972
+INFO - 10/10/23 03:33:14 - 0:03:01 - test auc = 0.943522
+INFO - 10/10/23 03:33:14 - 0:03:01 - Epoch 38
+INFO - 10/10/23 03:33:19 - 0:03:05 - Validation auc = 0.928002
+INFO - 10/10/23 03:33:19 - 0:03:06 - test auc = 0.958324
+INFO - 10/10/23 03:33:19 - 0:03:06 - Epoch 39
+INFO - 10/10/23 03:33:23 - 0:03:10 - Validation auc = 0.922530
+INFO - 10/10/23 03:33:23 - 0:03:10 - test auc = 0.957801
+INFO - 10/10/23 03:33:23 - 0:03:10 - Epoch 40
+INFO - 10/10/23 03:33:28 - 0:03:14 - Validation auc = 0.926438
+INFO - 10/10/23 03:33:28 - 0:03:14 - test auc = 0.957917
+INFO - 10/10/23 03:33:28 - 0:03:14 - Epoch 41
+INFO - 10/10/23 03:33:32 - 0:03:18 - Validation auc = 0.927064
+INFO - 10/10/23 03:33:32 - 0:03:19 - test auc = 0.940562
+INFO - 10/10/23 03:33:32 - 0:03:19 - Epoch 42
+INFO - 10/10/23 03:33:36 - 0:03:23 - Validation auc = 0.929018
+INFO - 10/10/23 03:33:37 - 0:03:23 - test auc = 0.941200
+INFO - 10/10/23 03:33:37 - 0:03:23 - Epoch 43
+INFO - 10/10/23 03:33:41 - 0:03:27 - Validation auc = 0.930191
+INFO - 10/10/23 03:33:41 - 0:03:27 - test auc = 0.940794
+INFO - 10/10/23 03:33:41 - 0:03:27 - Epoch 44
+INFO - 10/10/23 03:33:45 - 0:03:32 - Validation auc = 0.928236
+INFO - 10/10/23 03:33:45 - 0:03:32 - test auc = 0.932842
+INFO - 10/10/23 03:33:45 - 0:03:32 - Epoch 45
+INFO - 10/10/23 03:33:49 - 0:03:36 - Validation auc = 0.932067
+INFO - 10/10/23 03:33:50 - 0:03:36 - test auc = 0.935222
+INFO - 10/10/23 03:33:50 - 0:03:36 - Epoch 46
+INFO - 10/10/23 03:33:54 - 0:03:40 - Validation auc = 0.930972
+INFO - 10/10/23 03:33:54 - 0:03:41 - test auc = 0.935512
+INFO - 10/10/23 03:33:54 - 0:03:41 - Epoch 47
+INFO - 10/10/23 03:33:58 - 0:03:45 - Validation auc = 0.930034
+INFO - 10/10/23 03:33:59 - 0:03:45 - test auc = 0.935048
+INFO - 10/10/23 03:33:59 - 0:03:45 - Epoch 48
+INFO - 10/10/23 03:34:03 - 0:03:49 - Validation auc = 0.929331
+INFO - 10/10/23 03:34:03 - 0:03:50 - test auc = 0.934003
+INFO - 10/10/23 03:34:03 - 0:03:50 - Epoch 49
+INFO - 10/10/23 03:34:07 - 0:03:54 - Validation auc = 0.935038
+INFO - 10/10/23 03:34:08 - 0:03:54 - test auc = 0.942129
+INFO - 10/10/23 03:34:08 - 0:03:54 - Epoch 50
+INFO - 10/10/23 03:34:12 - 0:03:58 - Validation auc = 0.918308
+INFO - 10/10/23 03:34:12 - 0:03:59 - test auc = 0.938588
+INFO - 10/10/23 03:34:12 - 0:03:59 - Epoch 51
+INFO - 10/10/23 03:34:16 - 0:04:03 - Validation auc = 0.929096
+INFO - 10/10/23 03:34:17 - 0:04:03 - test auc = 0.939111
+INFO - 10/10/23 03:34:17 - 0:04:03 - Epoch 52
+INFO - 10/10/23 03:34:21 - 0:04:07 - Validation auc = 0.934490
+INFO - 10/10/23 03:34:21 - 0:04:08 - test auc = 0.938298
+INFO - 10/10/23 03:34:21 - 0:04:08 - Epoch 53
+INFO - 10/10/23 03:34:25 - 0:04:12 - Validation auc = 0.929487
+INFO - 10/10/23 03:34:26 - 0:04:12 - test auc = 0.953390
+INFO - 10/10/23 03:34:26 - 0:04:12 - Epoch 54
+INFO - 10/10/23 03:34:30 - 0:04:16 - Validation auc = 0.926595
+INFO - 10/10/23 03:34:30 - 0:04:16 - test auc = 0.939749
+INFO - 10/10/23 03:34:30 - 0:04:16 - Epoch 55
+INFO - 10/10/23 03:34:34 - 0:04:21 - Validation auc = 0.932458
+INFO - 10/10/23 03:34:34 - 0:04:21 - test auc = 0.933480
+INFO - 10/10/23 03:34:34 - 0:04:21 - Epoch 56
+INFO - 10/10/23 03:34:38 - 0:04:25 - Validation auc = 0.936601
+INFO - 10/10/23 03:34:39 - 0:04:25 - test auc = 0.938124
+INFO - 10/10/23 03:34:39 - 0:04:25 - Epoch 57
+INFO - 10/10/23 03:34:43 - 0:04:29 - Validation auc = 0.930425
+INFO - 10/10/23 03:34:43 - 0:04:29 - test auc = 0.941084
+INFO - 10/10/23 03:34:43 - 0:04:29 - Epoch 58
+INFO - 10/10/23 03:34:47 - 0:04:33 - Validation auc = 0.922452
+INFO - 10/10/23 03:34:47 - 0:04:34 - test auc = 0.950488
+INFO - 10/10/23 03:34:47 - 0:04:34 - Epoch 59
+INFO - 10/10/23 03:36:10 - 0:00:00 - ============ Initialized logger ============
+INFO - 10/10/23 03:36:10 - 0:00:00 - activation: ReLU
+                                     atom_messages: False
+                                     batch_size: 256
+                                     bias: False
+                                     checkpoint_dir: None
+                                     checkpoint_path: ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+                                     checkpoint_paths: ['./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl']
+                                     command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl' --exp_id "bbbp_test"
+                                     config_path: None
+                                     crossval_index_dir: None
+                                     crossval_index_file: None
+                                     cuda: True
+                                     data_path: ./data/bbbp.csv
+                                     dataset_type: classification
+                                     depth: 3
+                                     dropout: 0.0
+                                     dump_path: dumped
+                                     encoder_name: CMPNN
+                                     ensemble_size: 1
+                                     epochs: 100
+                                     exp_id: bbbp_test
+                                     exp_name: finetune
+                                     features_generator: None
+                                     features_only: False
+                                     features_path: None
+                                     features_scaling: True
+                                     ffn_hidden_size: 300
+                                     ffn_num_layers: 2
+                                     final_lr: 0.0001
+                                     folds_file: None
+                                     gpu: 0
+                                     hidden_size: 300
+                                     init_lr: 0.0001
+                                     log_frequency: 10
+                                     max_data_size: None
+                                     max_lr: 0.001
+                                     metric: auc
+                                     minimize_score: False
+                                     multiclass_num_classes: 3
+                                     no_cache: False
+                                     num_lrs: 1
+                                     num_runs: 1
+                                     quiet: False
+                                     save_dir: ./ckpt
+                                     save_smiles_splits: False
+                                     seed: 43
+                                     separate_test_features_path: None
+                                     separate_test_path: None
+                                     separate_val_features_path: None
+                                     separate_val_path: None
+                                     show_individual_scores: False
+                                     split_sizes: [0.8, 0.1, 0.1]
+                                     split_type: scaffold_balanced
+                                     step: functional_prompt
+                                     temperature: 0.1
+                                     test: False
+                                     test_fold_index: None
+                                     undirected: False
+                                     use_compound_names: False
+                                     use_input_features: None
+                                     val_fold_index: None
+                                     warmup_epochs: 2.0
+INFO - 10/10/23 03:36:10 - 0:00:00 - ========================
+                                     # Git Version: 6372f52 #
+                                     ========================
+INFO - 10/10/23 03:36:10 - 0:00:00 - The experiment will be stored in dumped\1010-finetune\bbbp_test
+                                     
+INFO - 10/10/23 03:36:10 - 0:00:00 - Running command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl'
+
+INFO - 10/10/23 03:36:10 - 0:00:00 - Run 0
+INFO - 10/10/23 03:36:10 - 0:00:00 - Loading data
+INFO - 10/10/23 03:36:10 - 0:00:00 - Number of tasks = 1
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Splitting data with seed 43
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Total scaffolds = 1,025 | train scaffolds = 782 | val scaffolds = 119 | test scaffolds = 124
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Label averages per scaffold, in decreasing order of scaffold frequency,capped at 10 scaffolds and 20 labels: [(array([0.72992701]), array([137], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64))]
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Class sizes
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - p_np 0: 23.49%, 1: 76.51%
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Total size = 2,039 | train size = 1,631 | val size = 203 | test size = 205
+DEBUG - 10/10/23 03:36:10 - 0:00:00 - Loading model from ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+DEBUG - 10/10/23 03:36:10 - 0:00:01 - MoleculeModel(
+                                        (sigmoid): Sigmoid()
+                                        (encoder): CMPN(
+                                          (encoder): CMPNEncoder(
+                                            (dropout_layer): Dropout(p=0.0, inplace=False)
+                                            (act_func): ReLU()
+                                            (W_i_atom): PromptGeneratorOutput(
+                                              (self_out): Linear(in_features=133, out_features=300, bias=False)
+                                              (prompt_generator): Prompt_generator(
+                                                (linear): Linear(in_features=133, out_features=300, bias=True)
+                                                (attention_layer_1): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (attention_layer_2): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+                                              )
+                                            )
+                                            (W_i_bond): Linear(in_features=147, out_features=300, bias=False)
+                                            (W_h_atom): Linear(in_features=447, out_features=300, bias=False)
+                                            (W_h_0): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_h_1): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_o): Linear(in_features=600, out_features=300, bias=True)
+                                            (gru): BatchGRU(
+                                              (gru): GRU(300, 300, batch_first=True, bidirectional=True)
+                                            )
+                                            (lr): Linear(in_features=900, out_features=300, bias=False)
+                                            (W_i_atom_new): Linear(in_features=266, out_features=300, bias=False)
+                                          )
+                                        )
+                                        (ffn): Sequential(
+                                          (0): Dropout(p=0.0, inplace=False)
+                                          (1): Linear(in_features=300, out_features=300, bias=True)
+                                          (2): ReLU()
+                                          (3): Dropout(p=0.0, inplace=False)
+                                          (4): Linear(in_features=300, out_features=1, bias=True)
+                                        )
+                                      )
+DEBUG - 10/10/23 03:36:10 - 0:00:01 - Number of parameters = 2,178,806
+DEBUG - 10/10/23 03:36:10 - 0:00:01 - Moving model to cuda
+INFO - 10/10/23 03:36:12 - 0:00:02 - Epoch 0
+INFO - 10/10/23 03:36:16 - 0:00:06 - Validation auc = 0.885006
+INFO - 10/10/23 03:36:16 - 0:00:06 - test auc = 0.858718
+INFO - 10/10/23 03:36:16 - 0:00:06 - Epoch 1
+INFO - 10/10/23 14:17:08 - 0:00:00 - ============ Initialized logger ============
+INFO - 10/10/23 14:17:08 - 0:00:00 - activation: ReLU
+                                     atom_messages: False
+                                     batch_size: 256
+                                     bias: False
+                                     checkpoint_dir: None
+                                     checkpoint_path: ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+                                     checkpoint_paths: ['./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl']
+                                     command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl' --exp_id "bbbp_test"
+                                     config_path: None
+                                     crossval_index_dir: None
+                                     crossval_index_file: None
+                                     cuda: True
+                                     data_path: ./data/bbbp.csv
+                                     dataset_type: classification
+                                     depth: 3
+                                     dropout: 0.0
+                                     dump_path: dumped
+                                     encoder_name: CMPNN
+                                     ensemble_size: 1
+                                     epochs: 100
+                                     exp_id: bbbp_test
+                                     exp_name: finetune
+                                     features_generator: None
+                                     features_only: False
+                                     features_path: None
+                                     features_scaling: True
+                                     ffn_hidden_size: 300
+                                     ffn_num_layers: 2
+                                     final_lr: 0.0001
+                                     folds_file: None
+                                     gpu: 0
+                                     hidden_size: 300
+                                     init_lr: 0.0001
+                                     log_frequency: 10
+                                     max_data_size: None
+                                     max_lr: 0.001
+                                     metric: auc
+                                     minimize_score: False
+                                     multiclass_num_classes: 3
+                                     no_cache: False
+                                     num_lrs: 1
+                                     num_runs: 1
+                                     quiet: False
+                                     save_dir: ./ckpt
+                                     save_smiles_splits: False
+                                     seed: 43
+                                     separate_test_features_path: None
+                                     separate_test_path: None
+                                     separate_val_features_path: None
+                                     separate_val_path: None
+                                     show_individual_scores: False
+                                     split_sizes: [0.8, 0.1, 0.1]
+                                     split_type: scaffold_balanced
+                                     step: functional_prompt
+                                     temperature: 0.1
+                                     test: False
+                                     test_fold_index: None
+                                     undirected: False
+                                     use_compound_names: False
+                                     use_input_features: None
+                                     val_fold_index: None
+                                     warmup_epochs: 2.0
+INFO - 10/10/23 14:17:08 - 0:00:00 - ========================
+                                     # Git Version: 6372f52 #
+                                     ========================
+INFO - 10/10/23 14:17:08 - 0:00:00 - The experiment will be stored in dumped\1010-finetune\bbbp_test
+                                     
+INFO - 10/10/23 14:17:08 - 0:00:00 - Running command: python train.py --data_path './data/bbbp.csv' --metric auc --dataset_type classification --epochs 100 --gpu 0 --batch_size 256 --seed 43 --init_lr '1e-4' --split_type scaffold_balanced --step functional_prompt --exp_name finetune --exp_id bbbp_test --checkpoint_path './dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl'
+
+INFO - 10/10/23 14:17:08 - 0:00:00 - Run 0
+INFO - 10/10/23 14:17:08 - 0:00:00 - Loading data
+INFO - 10/10/23 14:17:08 - 0:00:00 - Number of tasks = 1
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Splitting data with seed 43
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Total scaffolds = 1,025 | train scaffolds = 782 | val scaffolds = 119 | test scaffolds = 124
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Label averages per scaffold, in decreasing order of scaffold frequency,capped at 10 scaffolds and 20 labels: [(array([0.72992701]), array([137], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.]), array([1], dtype=int64)), (array([1.]), array([1], dtype=int64)), (array([0.5]), array([2], dtype=int64)), (array([1.]), array([1], dtype=int64))]
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Class sizes
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - p_np 0: 23.49%, 1: 76.51%
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Total size = 2,039 | train size = 1,631 | val size = 203 | test size = 205
+DEBUG - 10/10/23 14:17:08 - 0:00:00 - Loading model from ./dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl
+DEBUG - 10/10/23 14:17:08 - 0:00:01 - MoleculeModel(
+                                        (sigmoid): Sigmoid()
+                                        (encoder): CMPN(
+                                          (encoder): CMPNEncoder(
+                                            (dropout_layer): Dropout(p=0.0, inplace=False)
+                                            (act_func): ReLU()
+                                            (W_i_atom): PromptGeneratorOutput(
+                                              (self_out): Linear(in_features=133, out_features=300, bias=False)
+                                              (prompt_generator): Prompt_generator(
+                                                (linear): Linear(in_features=133, out_features=300, bias=True)
+                                                (attention_layer_1): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (attention_layer_2): AttentionLayer(
+                                                  (w_q): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_k): Linear(in_features=133, out_features=32, bias=True)
+                                                  (w_v): Linear(in_features=133, out_features=32, bias=True)
+                                                  (dense): Linear(in_features=32, out_features=133, bias=True)
+                                                  (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+                                                  (dropout): Dropout(p=0.1, inplace=False)
+                                                )
+                                                (norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+                                              )
+                                            )
+                                            (W_i_bond): Linear(in_features=147, out_features=300, bias=False)
+                                            (W_h_atom): Linear(in_features=447, out_features=300, bias=False)
+                                            (W_h_0): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_h_1): Linear(in_features=300, out_features=300, bias=False)
+                                            (W_o): Linear(in_features=600, out_features=300, bias=True)
+                                            (gru): BatchGRU(
+                                              (gru): GRU(300, 300, batch_first=True, bidirectional=True)
+                                            )
+                                            (lr): Linear(in_features=900, out_features=300, bias=False)
+                                            (W_i_atom_new): Linear(in_features=266, out_features=300, bias=False)
+                                          )
+                                        )
+                                        (ffn): Sequential(
+                                          (0): Dropout(p=0.0, inplace=False)
+                                          (1): Linear(in_features=300, out_features=300, bias=True)
+                                          (2): ReLU()
+                                          (3): Dropout(p=0.0, inplace=False)
+                                          (4): Linear(in_features=300, out_features=1, bias=True)
+                                        )
+                                      )
+DEBUG - 10/10/23 14:17:08 - 0:00:01 - Number of parameters = 2,178,806
+DEBUG - 10/10/23 14:17:08 - 0:00:01 - Moving model to cuda
+INFO - 10/10/23 14:17:10 - 0:00:02 - Epoch 0
