@@ -1,8 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import molvs
-from rdkit import Chem
 from chemprop.data import StandardScaler
 from KANO_model.model import build_model, add_functional_prompt
 from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func
@@ -11,7 +9,6 @@ from warnings import simplefilter
 import torch
 import logging
 from chemprop.train.evaluate import evaluate_predictions
-import train_val
 from train_val import predict_epoch, train_epoch, evaluate_epoch
 from chemprop.train.evaluate import evaluate_predictions
 from torch.optim.lr_scheduler import ExponentialLR
@@ -207,7 +204,7 @@ def run_baseline_QSAR(args):
                                  cliff_mols_test=df_test['cliff_mol'].values)
     df_test.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
     logger.info(f'Prediction saved, RMSE: {rmse:.4f}, RMSE_cliff: {rmse_cliff:.4f}')
-    
+
     logger.handlers.clear()
     return
 

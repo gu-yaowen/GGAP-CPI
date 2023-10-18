@@ -21,7 +21,6 @@ import random
 from chemprop.data.utils import get_data, get_task_names
 from utils import check_molecule, chembl_to_uniprot, get_protein_sequence
 from DeepPurpose.utils import encode_drug, encode_protein
-from data_prep import split_data
 
 
 MOLECULEACE_DATALIST = ['CHEMBL1862_Ki', 'CHEMBL1871_Ki', 'CHEMBL2034_Ki', 'CHEMBL2047_EC50',
