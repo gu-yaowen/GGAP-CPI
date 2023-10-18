@@ -1,0 +1,27 @@
+# Standard hyperparameters for AttentiveFP
+epochs: 200
+hidden_channels:
+  - 32
+  - 64
+  - 128
+  - 256
+num_timesteps:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+# Number of layers
+num_layers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+# Dropout uniformly distributed between 0 and 0.2
+dropout:
+  - 0
+lr:
+  - 0.0005
+  - 0.00005
+  - 0.000005

@@ -1,0 +1,7 @@
+# The number of trees in the forest.
+n_estimators:
+  - 100
+  - 250
+  - 500
+  - 1000
+

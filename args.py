@@ -16,7 +16,7 @@ def add_args():
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='Turn off cuda')
     parser.add_argument('--mode', type=str, default='train',
-                        choices=['train', 'inference'],
+                        choices=['train', 'inference', 'baseline_QSAR', 'baseline_CPI'],
                         help='Mode to run script in')
     parser.add_argument('--data_path', type=str,
                         help='Path to CSV file containing training data',
@@ -35,11 +35,12 @@ def add_args():
                         choices=['random', 'scaffold_balanced', 'moleculeACE', 'predetermined'],
                         help='Method of splitting the data into training, validation, and test')
     parser.add_argument('--split_sizes', type=float, nargs='+',
-                        default=[0.8, 0.1, 0.1],
+                        default=[0.8, 0.0, 0.2],
                         help='Proportions of data to use for training, validation, and test')
+    parser.add_argument('--val', action='store_true', default=False,
+                        help='Whether to use val set')
     parser.add_argument('--features_scaling', action='store_true', default=False,
                         help='Turn on scaling of features')                  
-
     parser.add_argument('--features_generator', type=str, nargs='*',
                         choices=get_available_features_generators(),
                         help='Method of generating additional features')
@@ -51,6 +52,11 @@ def add_args():
                         help='Maximum number of data points to load')
     
     # training arguments
+    parser.add_argument('--baseline_model', type=str, default=None,
+                        choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
+                                 'GAT', 'GCN', 'AFP', 'MPNN', 'Transformer','LSTM',
+                                 'DeepDTA', 'GraphDTA', 'TransformerCPI'],
+                        help='Type of baseline model to train')
     parser.add_argument('--checkpoint_path', type=str,
                         default='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl',
                         help='Path to model checkpoint (.pt file)')
@@ -93,6 +99,8 @@ def add_args():
     args.final_lr = args.lr
     args.num_lrs = 1
     args.num_runs = 1
+    if args.basleline_model in ['DeepDTA', 'GraphDTA']:
+        args.mode == 'baseline_CPI'
     if args.metric in ['auc', 'prc-auc', 'accuracy', 'r2']:
         args.minimize_score = False
     elif args.metric in ['rmse', 'mae', 'cross_entropy']:

@@ -1,0 +1,8 @@
+dropout: 0
+epochs: 223
+fc_hidden: 128
+lr: 5.0e-05
+n_conv_layers: 4
+n_fc_layers: 4
+node_hidden: 512
+transformer_hidden: 128

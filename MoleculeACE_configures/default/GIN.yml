@@ -1,0 +1,19 @@
+# Standard hyperparameters for GIN_Pretrained
+epochs: 200
+# jumping knowledge
+jk:
+  - concat
+  - last
+  - max
+  - sum
+# Type of readout function
+readout:
+  - sum
+  - mean
+  - max
+  - attention
+lr:
+  - 0.005
+  - 0.0005
+  - 0.00005
+  - 0.000005

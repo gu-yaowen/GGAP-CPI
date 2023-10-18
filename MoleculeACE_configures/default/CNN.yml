@@ -1,0 +1,17 @@
+#Hyperparameters for the 1D CNN
+
+# N epochs with early stopping
+epochs: 500
+kernel_size:
+  - 4
+  - 8
+  - 10
+hidden:
+  - 128
+  - 256
+  - 512
+  - 1024
+lr:
+  - 0.0005
+  - 0.00005
+  - 0.000005
