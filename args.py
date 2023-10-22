@@ -37,8 +37,6 @@ def add_args():
     parser.add_argument('--split_sizes', type=float, nargs='+',
                         default=[0.8, 0.0, 0.2],
                         help='Proportions of data to use for training, validation, and test')
-    parser.add_argument('--val', action='store_true', default=False,
-                        help='Whether to use val set')
     parser.add_argument('--features_scaling', action='store_true', default=False,
                         help='Turn on scaling of features')                  
     parser.add_argument('--features_generator', type=str, nargs='*',
@@ -54,7 +52,7 @@ def add_args():
     # training arguments
     parser.add_argument('--baseline_model', type=str, default=None,
                         choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
-                                 'GAT', 'GCN', 'AFP', 'MPNN', 'Transformer','LSTM',
+                                 'GAT', 'GCN', 'AFP', 'MPNN', 'CNN', 'Transformer','LSTM',
                                  'DeepDTA', 'GraphDTA', 'TransformerCPI'],
                         help='Type of baseline model to train')
     parser.add_argument('--checkpoint_path', type=str,
@@ -99,7 +97,7 @@ def add_args():
     args.final_lr = args.lr
     args.num_lrs = 1
     args.num_runs = 1
-    if args.basleline_model in ['DeepDTA', 'GraphDTA']:
+    if args.baseline_model in ['DeepDTA', 'GraphDTA']:
         args.mode == 'baseline_CPI'
     if args.metric in ['auc', 'prc-auc', 'accuracy', 'r2']:
         args.minimize_score = False

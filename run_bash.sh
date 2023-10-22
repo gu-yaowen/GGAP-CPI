@@ -21,7 +21,8 @@ while IFS= read -r file; do
     if [[ "$file" == *.csv ]]; then
         data_path=$dataset$file
         echo $data_path
-        for model in "MLP" "SVM" "RF" "GBM" "KNN" "GAT" "GCN" "AFP" "MPNN" "Transformer" "LSTM"; do
+        # for model in "MLP" "SVM" "RF" "GBM" "KNN" "GAT" "GCN" "AFP" "MPNN" "Transformer" "LSTM"; do
+        for model in "LSTM" "GCN" "GAT" "MPNN"; do
             python main.py --gpu 0 \
                            --mode baseline_QSAR \
                            --data_path $data_path \
@@ -31,3 +32,10 @@ while IFS= read -r file; do
         done
     fi
 done < <(find "$data_folder" -maxdepth 1 -type f)
+
+# python main.py --gpu 0 \
+#                 --mode baseline_CPI \
+#                 --dataset_type regression \
+#                 --data_path test \
+#                 --seed 0 \
+#                 --baseline_model DeepDTA

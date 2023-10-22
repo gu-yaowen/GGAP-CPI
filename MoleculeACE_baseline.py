@@ -22,7 +22,7 @@ def load_MoleculeACE_model(args, logger):
         des = 'Graph'
     elif args.baseline_model == 'Transformer':
         descriptor = Descriptors.TOKENS
-        des = 'Token'
+        des = 'TOKENS'
     elif args.baseline_model in ['CNN', 'LSTM']:
         descriptor = Descriptors.SMILES
         des = 'SMILES'
@@ -39,17 +39,22 @@ def load_MoleculeACE_model(args, logger):
         config_path = os.path.join('MoleculeACE_configures', 'benchmark',
                                    args.data_name, f'{args.baseline_model}_{des}.yml')
         hyperparameters = get_config(config_path)
+        if args.baseline_model == 'LSTM':
+            hyperparameters['pretrained_model'] = None
         model = model_zoo[args.baseline_model](**hyperparameters)
-        logger.info(f'using config file {config_path} to load model')
     else:
         try:
             config_path = os.path.join('MoleculeACE_configures', 'default',
                                     f'{args.baseline_model}.yml')        
             hyperparameters = get_config(config_path)
+            if args.baseline_model == 'LSTM':
+                hyperparameters['pretrained_model'] = None
             model = model_zoo[args.baseline_model](**hyperparameters)
             logger.info(f'using default config file {config_path} to load model')
         except:
             config_path = None
+            if args.baseline_model == 'LSTM':
+                model = model_zoo[args.baseline_model](pretrained_model=None)
             model = model_zoo[args.baseline_model]()
             logger.info(f'no config file found, using default parameters!!')
             pass

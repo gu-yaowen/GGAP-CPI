@@ -103,7 +103,7 @@ def process_data_CPI(args, logger):
         df_data = pd.concat([df_data, df])
         chembl_list.append(assay_name.split('_')[0])
 
-    pos_num, neg_num = len(df[df['cliff_mol']==1]), len(df[df['cliff_mol']==0])
+    pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
     logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
 
     # protein ID mapping and sequence retrieval

@@ -11,6 +11,7 @@ import logging
 from chemprop.train.evaluate import evaluate_predictions
 from train_val import predict_epoch, train_epoch, evaluate_epoch
 from chemprop.train.evaluate import evaluate_predictions
+import tensorflow as tf
 from torch.optim.lr_scheduler import ExponentialLR
 from args import add_args
 from utils import set_save_path, set_seed, set_collect_metric, \
@@ -170,6 +171,7 @@ def run_baseline_QSAR(args):
     # Note: as the Data class in Molecule ACE directly extracts split index from the original dataset, 
     # it is highly recommended to run KANO first to keep consistency between the baseline.
     data = Data(args.data_name)
+
     descriptor, model = load_MoleculeACE_model(args, logger)
 
     # Data augmentation for Sequence-based models
@@ -186,7 +188,7 @@ def run_baseline_QSAR(args):
     # save model
     model_save_path = os.path.join(args.save_path, f'{args.baseline_model}_model.pkl')
     model_save_path = model_save_path.replace(
-                        '.pkl','.h5') if args.baseline_model is 'LSTM' else model_save_path
+                        '.pkl','.h5') if args.baseline_model == 'LSTM' else model_save_path
     with open(model_save_path, 'wb') as handle:
         pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -230,16 +232,15 @@ def run_baseline_CPI(args):
                             cnn_target_kernels = [4,8,12]
                             )
         model = models.model_initialize(**config)
-        logger.info('load DeepDTA model from DeepPurpose')
-        logger.info(f'model: {model}') 
+        logger.info(f'load {args.baseline_model} model from DeepPurpose')
         model = models.model_initialize(**config)
 
-        model.train(train_data, val_data, test_data)
+        logger.info(f'training {args.baseline_model}...')
+        model.train(train=train_data, val=None, test=test_data)
 
         # get predictions
         test_pred = model.predict(test_data)
-        save_checkpoint(os.path.join(args.save_path,f'{args.baseline_model}_model.pt'),
-                        model=model, args=args) 
+        model.save_model(os.path.join(args.save_path,f'{args.baseline_model}')) 
 
         test_data_all = df_all[df_all['split']=='test']
         test_data['UniProt_id'] = test_data_all['UniProt_id'].values
