@@ -21,7 +21,9 @@ import random
 from chemprop.data.utils import get_data, get_task_names
 from utils import check_molecule, chembl_to_uniprot, get_protein_sequence
 from DeepPurpose.utils import encode_drug, encode_protein
-
+from rdkit import Chem
+import networkx as nx
+from CPI_baseline.GraphDTA.utils import TestbedDataset
 
 MOLECULEACE_DATALIST = ['CHEMBL1862_Ki', 'CHEMBL1871_Ki', 'CHEMBL2034_Ki', 'CHEMBL2047_EC50',
                         'CHEMBL204_Ki', 'CHEMBL2147_Ki', 'CHEMBL214_Ki', 'CHEMBL218_EC50',
@@ -128,8 +130,7 @@ def process_data_CPI(args, logger):
     val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
     train_idx = list(set(train_idx) - set(val_idx))
 
-    args.cpi_model = 'DeepDTA'
-    if args.cpi_model == 'DeepDTA':
+    if args.baseline_model == 'DeepDTA':
         df = pd.DataFrame(zip(X_drug, X_target, y))
         df.rename(columns={0:'SMILES', 1: 'Sequence', 2: 'Label'}, inplace=True)
 
@@ -141,9 +142,46 @@ def process_data_CPI(args, logger):
         train_data = train_data.reset_index(drop=True)
         val_data = val_data.reset_index(drop=True)
         test_data = test_data.reset_index(drop=True)
-        logger.info(f'total size: {len(df)}, train size: {len(train_data)}, '
-                    f'val size: {len(val_data)}, test size: {len(test_data)}')
+
+    elif args.baseline_model == 'GraphDTA':
+        train_data = df_data.iloc[train_idx]
+        val_data = df_data.iloc[val_idx]
+        test_data = df_data.iloc[test_idx]
+
+        train_graph = {}
+        for s in train_data['smiles'].values:
+            g = smiles_to_graph(s)
+            train_graph[s] = g
+        val_graph = {}
+        for s in val_data['smiles'].values:
+            g = smiles_to_graph(s)
+            val_graph[s] = g
+        test_graph = {}
+        for s in test_data['smiles'].values:
+            g = smiles_to_graph(s)
+            test_graph[s] = g
+
+        train_smiles, val_smiles, test_smiles = train_data['smiles'].values, \
+                                                val_data['smiles'].values, \
+                                                test_data['smiles'].values
+        
+        train_protein = [seq_cat(t) for t in train_data['Sequence'].values]
+        val_protein = [seq_cat(t) for t in val_data['Sequence'].values]
+        test_protein = [seq_cat(t) for t in test_data['Sequence'].values]
+
+        train_label, val_label, test_label = train_data['y'].values, \
+                                             val_data['y'].values, \
+                                             test_data['y'].values
+        
+        train_data = TestbedDataset(root=args.save_path, dataset='train_data',
+               xd=train_smiles, xt=train_protein, y=train_label, smile_graph=train_graph)
+        val_data = TestbedDataset(root=args.save_path, dataset='val_data',
+                xd=val_smiles, xt=val_protein, y=val_label, smile_graph=val_graph)
+        test_data = TestbedDataset(root=args.save_path, dataset='test_data',
+                xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
     # elif args.cpi_model == 'GraphDTA':
+    logger.info(f'total size: {len(df)}, train size: {len(train_data)}, '
+                f'val size: {len(val_data)}, test size: {len(test_data)}')
     return df_data, test_idx, train_data, val_data, test_data
 
 
@@ -311,3 +349,53 @@ def check_cliffs(cliffs, n: int = 10):
 
     for i, j in non_cliff_loc:
         assert not is_cliff(cliffs.smiles[i], cliffs.smiles[j], cliffs.bioactivity[i], cliffs.bioactivity[j])
+
+# Convertion from SMILES to graph data for GraphDTA
+def atom_features(atom):
+    return np.array(one_of_k_encoding_unk(atom.GetSymbol(),['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na','Ca', 'Fe', 'As', 'Al', 'I', 'B', 'V', 'K', 'Tl', 'Yb','Sb', 'Sn', 'Ag', 'Pd', 'Co', 'Se', 'Ti', 'Zn', 'H','Li', 'Ge', 'Cu', 'Au', 'Ni', 'Cd', 'In', 'Mn', 'Zr','Cr', 'Pt', 'Hg', 'Pb', 'Unknown']) +
+                    one_of_k_encoding(atom.GetDegree(), [0, 1, 2, 3, 4, 5, 6,7,8,9,10]) +
+                    one_of_k_encoding_unk(atom.GetTotalNumHs(), [0, 1, 2, 3, 4, 5, 6,7,8,9,10]) +
+                    one_of_k_encoding_unk(atom.GetImplicitValence(), [0, 1, 2, 3, 4, 5, 6,7,8,9,10]) +
+                    [atom.GetIsAromatic()])
+
+def one_of_k_encoding(x, allowable_set):
+    if x not in allowable_set:
+        raise Exception("input {0} not in allowable set{1}:".format(x, allowable_set))
+    return list(map(lambda s: x == s, allowable_set))
+
+
+def one_of_k_encoding_unk(x, allowable_set):
+    """Maps inputs not in the allowable set to the last element."""
+    if x not in allowable_set:
+        x = allowable_set[-1]
+    return list(map(lambda s: x == s, allowable_set))
+
+
+def smiles_to_graph(smile):
+    mol = Chem.MolFromSmiles(smile)
+    
+    c_size = mol.GetNumAtoms()
+    
+    features = []
+    for atom in mol.GetAtoms():
+        feature = atom_features(atom)
+        features.append( feature / sum(feature) )
+
+    edges = []
+    for bond in mol.GetBonds():
+        edges.append([bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()])
+    g = nx.Graph(edges).to_directed()
+    edge_index = []
+    for e1, e2 in g.edges:
+        edge_index.append([e1, e2])
+        
+    return c_size, features, edge_index
+
+
+def seq_cat(prot, max_seq_len=1000):
+    seq_voc = "ABCDEFGHIKLMNOPQRSTUVWXYZ"
+    seq_dict = {v:(i+1) for i,v in enumerate(seq_voc)}
+    x = np.zeros(max_seq_len)
+    for i, ch in enumerate(prot[:max_seq_len]): 
+        x[i] = seq_dict[ch]
+    return x  

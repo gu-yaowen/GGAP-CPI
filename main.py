@@ -11,7 +11,6 @@ import logging
 from chemprop.train.evaluate import evaluate_predictions
 from train_val import predict_epoch, train_epoch, evaluate_epoch
 from chemprop.train.evaluate import evaluate_predictions
-import tensorflow as tf
 from torch.optim.lr_scheduler import ExponentialLR
 from args import add_args
 from utils import set_save_path, set_seed, set_collect_metric, \
@@ -19,7 +18,6 @@ from utils import set_save_path, set_seed, set_collect_metric, \
 import DeepPurpose.DTI as models
 from DeepPurpose.utils import generate_config
 from MoleculeACE.benchmark.utils import Data, calc_rmse, calc_cliff_rmse
-from MoleculeACE_baseline import load_MoleculeACE_model
 import pickle
 
 
@@ -164,6 +162,8 @@ def predict_main(args):
     return
 
 def run_baseline_QSAR(args):
+    from MoleculeACE_baseline import load_MoleculeACE_model
+
     args, logger = set_up(args)
     
     logger.info(f'current task: {args.data_name}')
@@ -211,6 +211,9 @@ def run_baseline_QSAR(args):
     return
 
 def run_baseline_CPI(args):
+    from CPI_baseline.GraphDTA import GraphDTA
+    from torch_geometric.data import DataLoader
+
     args, logger = set_up(args)
 
     df_all, test_idx, train_data, val_data, test_data = process_data_CPI(args, logger)
@@ -237,36 +240,50 @@ def run_baseline_CPI(args):
 
         logger.info(f'training {args.baseline_model}...')
         model.train(train=train_data, val=None, test=test_data)
-
         # get predictions
         test_pred = model.predict(test_data)
         model.save_model(os.path.join(args.save_path,f'{args.baseline_model}')) 
 
-        test_data_all = df_all[df_all['split']=='test']
-        test_data['UniProt_id'] = test_data_all['UniProt_id'].values
-        test_data['cliff_mol'] = test_data_all['cliff_mol'].values
+    elif args.baseline_model == 'GraphDTA':
+        model = GraphDTA()
+        # Note: the hyperparameters are reported as the best performing ones
+        # for the KIBA and DAVIS dataset
+        logger.info(f'load {args.baseline_model} model')
 
-        if 'Chembl_id' in test_data_all.columns:
-            test_data['Chembl_id'] = test_data_all['Chembl_id'].values
-            task = test_data_all['Chembl_id'].unique()[0]
-        else:
-            task = test_data_all['UniProt_id'].unique()[0]
+        train_loader = DataLoader(train_data, batch_size=512, shuffle=True)
+        val_loader = DataLoader(val_data, batch_size=512, shuffle=False)
+        test_loader = DataLoader(test_data, batch_size=512, shuffle=False)
 
-        test_data['Prediction'] = test_pred
-        test_data = test_data.rename(columns={'Label': 'y'})
-        test_data.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
-        rmse, rmse_cliff = [], []
+        logger.info(f'training {args.baseline_model}...')
+        model.train(args, logger, train_loader, val_loader)
+        # get predictions
+        _, test_pred = model.predict(test_loader)
 
-        for target in task:
-            test_data_target = test_data[test_data['UniProt_id']==target]
-            rmse.append(calc_rmse(test_data_target['y'], test_data_target['Prediction']))
-            rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'], y_test=test_data_target['y'],
-                                            cliff_mols_test=test_data_target['cliff_mol']))
-        logger.info('Prediction saved, RMSE: {:.4f}±{:.4f}, '
-                    'RMSE_cliff: {:.4f}±{:.4f}'.format(np.mean(rmse), np.std(rmse),
-                                                       np.mean(rmse_cliff), np.std(rmse_cliff)))
+    test_data_all = df_all[df_all['split']=='test']
+    test_data['UniProt_id'] = test_data_all['UniProt_id'].values
+    test_data['cliff_mol'] = test_data_all['cliff_mol'].values
 
-        logger.handlers.clear()        
+    if 'Chembl_id' in test_data_all.columns:
+        test_data['Chembl_id'] = test_data_all['Chembl_id'].values
+        task = test_data_all['Chembl_id'].unique()[0]
+    else:
+        task = test_data_all['UniProt_id'].unique()[0]
+
+    test_data['Prediction'] = test_pred
+    test_data = test_data.rename(columns={'Label': 'y'})
+    test_data.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
+    rmse, rmse_cliff = [], []
+
+    for target in task:
+        test_data_target = test_data[test_data['UniProt_id']==target]
+        rmse.append(calc_rmse(test_data_target['y'], test_data_target['Prediction']))
+        rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'], y_test=test_data_target['y'],
+                                        cliff_mols_test=test_data_target['cliff_mol']))
+    logger.info('Prediction saved, RMSE: {:.4f}±{:.4f}, '
+                'RMSE_cliff: {:.4f}±{:.4f}'.format(np.mean(rmse), np.std(rmse),
+                                                    np.mean(rmse_cliff), np.std(rmse_cliff)))
+
+    logger.handlers.clear()        
     return
 
 if __name__ == '__main__':

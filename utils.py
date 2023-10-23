@@ -12,7 +12,10 @@ from chemprop.data import StandardScaler
 from chembl_webresource_client.new_client import new_client
 
 def set_save_path(args):
-    args.save_path = os.path.join('exp_results', args.data_name, str(args.seed))
+    if args.mode == 'baseline_CPI':
+        args.save_path = os.path.join('exp_results', args.baseline_model)
+    else:
+        args.save_path = os.path.join('exp_results', args.data_name, str(args.seed))
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     return args
