@@ -53,7 +53,7 @@ def add_args():
     parser.add_argument('--baseline_model', type=str, default=None,
                         choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
                                  'GAT', 'GCN', 'AFP', 'MPNN', 'CNN', 'Transformer','LSTM',
-                                 'DeepDTA', 'GraphDTA', 'TransformerCPI'],
+                                 'DeepDTA', 'GraphDTA', 'MolTrans'],
                         help='Type of baseline model to train')
     parser.add_argument('--checkpoint_path', type=str,
                         default='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl',

@@ -212,7 +212,8 @@ def run_baseline_QSAR(args):
 
 def run_baseline_CPI(args):
     from CPI_baseline.GraphDTA import GraphDTA
-    from torch_geometric.data import DataLoader
+    from CPI_baseline.MolTrans import MolTrans
+    from CPI_baseline.utils import MolTrans_config_DBPE
 
     args, logger = set_up(args)
 
@@ -239,25 +240,35 @@ def run_baseline_CPI(args):
         model = models.model_initialize(**config)
 
         logger.info(f'training {args.baseline_model}...')
-        model.train(train=train_data, val=None, test=test_data)
+        if len(val_data) > 0:
+            model.train(train=train_data, val=val_data, test=test_data)
+        else:
+            model.train(train=train_data, val=None, test=test_data)
         # get predictions
         test_pred = model.predict(test_data)
         model.save_model(os.path.join(args.save_path,f'{args.baseline_model}')) 
 
     elif args.baseline_model == 'GraphDTA':
-        model = GraphDTA()
+        model = GraphDTA(args, logger)
         # Note: the hyperparameters are reported as the best performing ones
         # for the KIBA and DAVIS dataset
         logger.info(f'load {args.baseline_model} model')
-
-        train_loader = DataLoader(train_data, batch_size=512, shuffle=True)
-        val_loader = DataLoader(val_data, batch_size=512, shuffle=False)
-        test_loader = DataLoader(test_data, batch_size=512, shuffle=False)
-
         logger.info(f'training {args.baseline_model}...')
-        model.train(args, logger, train_loader, val_loader)
+        model.train(args, logger, train_data, val_data)
         # get predictions
-        _, test_pred = model.predict(test_loader)
+        _, test_pred = model.predict(test_data)
+
+    elif args.baseline_model == 'MolTrans':
+        config = MolTrans_config_DBPE()
+        model = MolTrans(args, logger, config)
+        logger.info(f'load {args.baseline_model} model')
+        logger.info(f'training {args.baseline_model}...')  
+        if len(val_data) > 0:
+            model.train(args, logger, train_data, val_loader=val_data)
+        else:
+            model.train(args, logger, train_data, val_loader=train_data)
+        # get predictions
+        _, test_pred = model.predict(test_data)
 
     test_data_all = df_all[df_all['split']=='test']
     test_data['UniProt_id'] = test_data_all['UniProt_id'].values

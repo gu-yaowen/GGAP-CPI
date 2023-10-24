@@ -10,6 +10,7 @@ A collection of data-prepping functions
 
 """
 
+import os
 from MoleculeACE.benchmark.cliffs import ActivityCliffs, get_tanimoto_matrix
 from sklearn.cluster import SpectralClustering
 from sklearn.model_selection import train_test_split
@@ -23,7 +24,9 @@ from utils import check_molecule, chembl_to_uniprot, get_protein_sequence
 from DeepPurpose.utils import encode_drug, encode_protein
 from rdkit import Chem
 import networkx as nx
-from CPI_baseline.GraphDTA.utils import TestbedDataset
+from torch.utils import data
+from torch_geometric.data import DataLoader
+from CPI_baseline.utils import TestbedDataset, MolTrans_Data_Encoder
 
 MOLECULEACE_DATALIST = ['CHEMBL1862_Ki', 'CHEMBL1871_Ki', 'CHEMBL2034_Ki', 'CHEMBL2047_EC50',
                         'CHEMBL204_Ki', 'CHEMBL2147_Ki', 'CHEMBL214_Ki', 'CHEMBL218_EC50',
@@ -90,35 +93,42 @@ def process_data_CPI(args, logger):
     if args.split_sizes:
         _, valid_ratio, test_ratio = args.split_sizes
 
-    # integrate bioactivity data
-    for assay_name in MOLECULEACE_DATALIST:
-        df = pd.read_csv(f'data/MoleculeACE/{assay_name}.csv')
-        df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
-        df = df.dropna(subset=args.smiles_columns)
+    if not os.path.exists(f'data/MoleculeACE/CPI_Integrated.csv'):
+        # integrate bioactivity data
+        for assay_name in MOLECULEACE_DATALIST:
+            df = pd.read_csv(f'data/MoleculeACE/{assay_name}.csv')
+            df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
+            df = df.dropna(subset=args.smiles_columns)
 
-        if 'split' not in df.columns and 'cliff_mol' not in df.columns:
-            df = split_data(df[args.smiles_columns].values,
-                                bioactivity=df[args.target_columns].values,
-                                in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
-            df.to_csv(args.data_path, index=False)
-        df['Chembl_id'] = assay_name.split('_')[0]
-        df_data = pd.concat([df_data, df])
-        chembl_list.append(assay_name.split('_')[0])
+            if 'split' not in df.columns and 'cliff_mol' not in df.columns:
+                df = split_data(df[args.smiles_columns].values,
+                                    bioactivity=df[args.target_columns].values,
+                                    in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
+                df.to_csv(args.data_path, index=False)
+            df['Chembl_id'] = assay_name.split('_')[0]
+            df_data = pd.concat([df_data, df])
+            chembl_list.append(assay_name.split('_')[0])
 
-    pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
-    logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
+        pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
+        logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
 
-    # protein ID mapping and sequence retrieval
-    logger.info('Mapping ChEMBL IDs to UniProt IDs...')
-    chembl_uni = dict(zip(chembl_list,
-                        [chembl_to_uniprot(chembl_id) for chembl_id in chembl_list]))
-    logger.info('Getting target sequences...')
-    uni_seq = dict(zip(chembl_uni.values(),
-                    [get_protein_sequence(uni_id) for uni_id in chembl_uni.values()]))
-    df_data['UniProt_id'] = df_data['Chembl_id'].map(chembl_uni)
-    df_data['Sequence'] = df_data['UniProt_id'].map(uni_seq)
-    df_data = df_data.dropna(subset=['UniProt_id', 'Sequence'])
-    df_data = df_data.reset_index(drop=True)
+        # protein ID mapping and sequence retrieval
+        logger.info('Mapping ChEMBL IDs to UniProt IDs...')
+        chembl_uni = dict(zip(chembl_list,
+                            [chembl_to_uniprot(chembl_id) for chembl_id in chembl_list]))
+        logger.info('Getting target sequences...')
+        uni_seq = dict(zip(chembl_uni.values(),
+                        [get_protein_sequence(uni_id) for uni_id in chembl_uni.values()]))
+        df_data['UniProt_id'] = df_data['Chembl_id'].map(chembl_uni)
+        df_data['Sequence'] = df_data['UniProt_id'].map(uni_seq)
+        df_data = df_data.dropna(subset=['UniProt_id', 'Sequence'])
+        df_data = df_data.reset_index(drop=True)
+        logger.info('Saving data to data/MoleculeACE/CPI_Integrated.csv')
+        df_data.to_csv(f'data/MoleculeACE/CPI_Integrated.csv', index=False)  
+    else:
+        df_data = pd.read_csv(f'data/MoleculeACE/CPI_Integrated.csv')
+        logger.info('Loading data from data/MoleculeACE/CPI_Integrated.csv')
+
     chembl_list_2 = df_data['Chembl_id'].unique()
     logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
 
@@ -144,9 +154,9 @@ def process_data_CPI(args, logger):
         test_data = test_data.reset_index(drop=True)
 
     elif args.baseline_model == 'GraphDTA':
-        train_data = df_data.iloc[train_idx]
-        val_data = df_data.iloc[val_idx]
-        test_data = df_data.iloc[test_idx]
+        train_data = df_data.iloc[train_idx].reset_index(drop=True)
+        val_data = df_data.iloc[val_idx].reset_index(drop=True)
+        test_data = df_data.iloc[test_idx].reset_index(drop=True)
 
         train_graph = {}
         for s in train_data['smiles'].values:
@@ -175,12 +185,35 @@ def process_data_CPI(args, logger):
         
         train_data = TestbedDataset(root=args.save_path, dataset='train_data',
                xd=train_smiles, xt=train_protein, y=train_label, smile_graph=train_graph)
-        val_data = TestbedDataset(root=args.save_path, dataset='val_data',
-                xd=val_smiles, xt=val_protein, y=val_label, smile_graph=val_graph)
+        train_data = DataLoader(train_data, batch_size=512, shuffle=True)
+        if len(val_data) > 0:
+            val_data = TestbedDataset(root=args.save_path, dataset='val_data',
+                    xd=val_smiles, xt=val_protein, y=val_label, smile_graph=val_graph)
+            val_data = DataLoader(val_data, batch_size=512, shuffle=False)
+        else:
+            val_data = []
         test_data = TestbedDataset(root=args.save_path, dataset='test_data',
                 xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
-    # elif args.cpi_model == 'GraphDTA':
-    logger.info(f'total size: {len(df)}, train size: {len(train_data)}, '
+        test_data = DataLoader(test_data, batch_size=512, shuffle=False)
+        
+    elif args.baseline_model == 'MolTrans':
+        train_data = df_data.iloc[train_idx].reset_index(drop=True)
+        val_data = df_data.iloc[val_idx].reset_index(drop=True)
+        test_data = df_data.iloc[test_idx].reset_index(drop=True)
+        train_data = MolTrans_Data_Encoder(train_data.index.values,
+                                          train_data['y'].values, train_data)
+        train_data = data.DataLoader(train_data, batch_size=50, shuffle=True, drop_last=True)
+        if len(val_data) > 0:
+            val_data = MolTrans_Data_Encoder(val_data.index.values,
+                                            val_data['y'].values, val_data)
+            val_data = data.DataLoader(val_data, batch_size=50, shuffle=False, drop_last=False)
+        else:
+            val_data = []
+        test_data = MolTrans_Data_Encoder(test_data.index.values,
+                                         test_data['y'].values, test_data)
+        test_data = data.DataLoader(test_data, batch_size=50, shuffle=False, drop_last=False)
+
+    logger.info(f'total size: {len(df_data)}, train size: {len(train_data)}, '
                 f'val size: {len(val_data)}, test size: {len(test_data)}')
     return df_data, test_idx, train_data, val_data, test_data
 

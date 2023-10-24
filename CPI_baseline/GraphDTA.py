@@ -26,7 +26,7 @@ class GraphDTA():
         self.TEST_BATCH_SIZE = 512
         self.LR = 0.0005
         self.LOG_INTERVAL = 20
-        self.NUM_EPOCHS = 2
+        self.NUM_EPOCHS = 1000
         logger.info("Batch size %d, Learning rate %f, Num epochs %d" %
                     (self.TRAIN_BATCH_SIZE, self.LR, self.NUM_EPOCHS))
         
