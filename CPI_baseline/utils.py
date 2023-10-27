@@ -213,7 +213,7 @@ def drug2emb_encoder(x, dbpe, words2idx_d):
 
 def MolTrans_config_DBPE():
     config = {}
-    config['batch_size'] = 16
+    config['batch_size'] = 64
     config['input_dim_drug'] = 23532
     config['input_dim_target'] = 16693
     config['train_epoch'] = 13

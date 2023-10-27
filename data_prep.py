@@ -202,16 +202,16 @@ def process_data_CPI(args, logger):
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
         train_data = MolTrans_Data_Encoder(train_data.index.values,
                                           train_data['y'].values, train_data)
-        train_data = data.DataLoader(train_data, batch_size=50, shuffle=True, drop_last=True)
+        train_data = data.DataLoader(train_data, batch_size=64, shuffle=True, drop_last=True)
         if len(val_data) > 0:
             val_data = MolTrans_Data_Encoder(val_data.index.values,
                                             val_data['y'].values, val_data)
-            val_data = data.DataLoader(val_data, batch_size=50, shuffle=False, drop_last=False)
+            val_data = data.DataLoader(val_data, batch_size=64, shuffle=False, drop_last=True)
         else:
             val_data = []
         test_data = MolTrans_Data_Encoder(test_data.index.values,
                                          test_data['y'].values, test_data)
-        test_data = data.DataLoader(test_data, batch_size=50, shuffle=False, drop_last=False)
+        test_data = data.DataLoader(test_data, batch_size=64, shuffle=False, drop_last=False)
 
     logger.info(f'total size: {len(df_data)}, train size: {len(train_data)}, '
                 f'val size: {len(val_data)}, test size: {len(test_data)}')

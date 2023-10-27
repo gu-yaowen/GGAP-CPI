@@ -25,7 +25,7 @@ class MolTrans():
         self.args = args
         # based on the reported performance in GraphDTA paper, 
         # we use GIN as the best-performing model
-        config['batch_size'] = 50
+        config['batch_size'] = 64
         self.model = BIN_Interaction_Flat(**config)
         if args.gpu is not None:
             self.device = torch.device("cuda:%d" % args.gpu)
@@ -88,7 +88,7 @@ class MolTrans():
                 p = p.to(self.device)
                 d_mask = d_mask.to(self.device)
                 p_mask = p_mask.to(self.device)
-                score = self.model(d.long(), p.long(), d_mask.long(), p_mask.long())
+                score = self.model(d, p, d_mask, p_mask)
                 label = Variable(torch.from_numpy(np.array(label)).float()).to(self.device)
 
                 total_preds = torch.cat((total_preds, score.cpu()), 0)
@@ -243,10 +243,7 @@ class Embeddings(nn.Module):
         
         words_embeddings = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
-        print(words_embeddings.shape)
-        print(position_embeddings.shape)
-        print(words_embeddings)
-        print(position_embeddings)
+
         embeddings = words_embeddings + position_embeddings
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)

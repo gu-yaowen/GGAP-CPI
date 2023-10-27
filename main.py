@@ -189,8 +189,11 @@ def run_baseline_QSAR(args):
     model_save_path = os.path.join(args.save_path, f'{args.baseline_model}_model.pkl')
     model_save_path = model_save_path.replace(
                         '.pkl','.h5') if args.baseline_model == 'LSTM' else model_save_path
-    with open(model_save_path, 'wb') as handle:
-        pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if args.baseline_model == 'LSTM':
+        model.save(model_save_path)
+    else:
+        with open(model_save_path, 'wb') as handle:
+            pickle.dump(model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     preds = model.predict(data.x_test)
     # collect test data
@@ -271,25 +274,28 @@ def run_baseline_CPI(args):
         _, test_pred = model.predict(test_data)
 
     test_data_all = df_all[df_all['split']=='test']
-    test_data['UniProt_id'] = test_data_all['UniProt_id'].values
-    test_data['cliff_mol'] = test_data_all['cliff_mol'].values
 
     if 'Chembl_id' in test_data_all.columns:
-        test_data['Chembl_id'] = test_data_all['Chembl_id'].values
-        task = test_data_all['Chembl_id'].unique()[0]
+        test_data_all['Chembl_id'] = test_data_all['Chembl_id'].values
+        task = test_data_all['Chembl_id'].unique()
     else:
-        task = test_data_all['UniProt_id'].unique()[0]
+        task = test_data_all['UniProt_id'].unique()
 
-    test_data['Prediction'] = test_pred
-    test_data = test_data.rename(columns={'Label': 'y'})
-    test_data.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
+    test_data_all['Prediction'] = test_pred[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+    test_data_all = test_data_all.rename(columns={'Label': 'y'})
+    test_data_all.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
     rmse, rmse_cliff = [], []
 
     for target in task:
-        test_data_target = test_data[test_data['UniProt_id']==target]
-        rmse.append(calc_rmse(test_data_target['y'], test_data_target['Prediction']))
-        rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'], y_test=test_data_target['y'],
-                                        cliff_mols_test=test_data_target['cliff_mol']))
+        if 'Chembl_id' in test_data_all.columns:
+            test_data_target = test_data_all[test_data_all['Chembl_id']==target]
+        else:
+            test_data_target = test_data_all[test_data_all['UniProt_id']==target]
+        rmse.append(calc_rmse(test_data_target['y'].values, test_data_target['Prediction'].values))
+        rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'].values,
+                                          y_test=test_data_target['y'].values,
+                                        cliff_mols_test=test_data_target['cliff_mol'].values))
+                                        
     logger.info('Prediction saved, RMSE: {:.4f}±{:.4f}, '
                 'RMSE_cliff: {:.4f}±{:.4f}'.format(np.mean(rmse), np.std(rmse),
                                                     np.mean(rmse_cliff), np.std(rmse_cliff)))
