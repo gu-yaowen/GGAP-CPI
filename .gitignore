@@ -12,8 +12,10 @@
 data/
 exp_results/
 result/
-run/
+runs/
 Feature/
+__pycache__/
 
 # Ignore all .txt files in a specific directory
-# notes/*.txt
+*/__pycache__/
+
