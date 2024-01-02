@@ -19,7 +19,7 @@ def load_MoleculeACE_model(args, logger):
         des = 'ECFP'
     elif args.baseline_model in ['GAT', 'GCN', 'AFP', 'MPNN']:
         descriptor = Descriptors.GRAPH
-        des = 'Graph'
+        des = 'GRAPH'
     elif args.baseline_model == 'Transformer':
         descriptor = Descriptors.TOKENS
         des = 'TOKENS'
@@ -35,9 +35,11 @@ def load_MoleculeACE_model(args, logger):
     logger.info(f'load {args.baseline_model} model')
 
     # load config if existed
-    if args.data_name in MOLECULEACE_DATALIST:
+    if args.data_name in MOLECULEACE_DATALIST or args.data_name.split('_Integrated')[0] in MOLECULEACE_DATALIST:
         config_path = os.path.join('MoleculeACE_configures', 'benchmark',
-                                   args.data_name, f'{args.baseline_model}_{des}.yml')
+                                   args.data_name if '_Integrated' not in args.data_name 
+                                                else args.data_name.split('_Integrated')[0],
+                                    f'{args.baseline_model}_{des}.yml')
         hyperparameters = get_config(config_path)
         if args.baseline_model == 'LSTM':
             hyperparameters['pretrained_model'] = None

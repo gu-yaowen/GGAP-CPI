@@ -11,7 +11,9 @@ A collection of data-prepping functions
 """
 
 import os
-from MoleculeACE.benchmark.cliffs import ActivityCliffs, get_tanimoto_matrix
+import pickle
+from MoleculeACE.benchmark.cliffs import ActivityCliffs, get_tanimoto_matrix, \
+                                        moleculeace_similarity, get_fc
 from sklearn.cluster import SpectralClustering
 from sklearn.model_selection import train_test_split
 from chemprop.data import MoleculeDataset
@@ -19,6 +21,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 import random
+from tqdm import tqdm
 from chemprop.data.utils import get_data, get_task_names
 from utils import check_molecule, chembl_to_uniprot, get_protein_sequence
 from DeepPurpose.utils import encode_drug, encode_protein
@@ -28,29 +31,26 @@ from torch.utils import data
 from torch_geometric.data import DataLoader
 from CPI_baseline.utils import TestbedDataset, MolTrans_Data_Encoder
 
-MOLECULEACE_DATALIST = ['CHEMBL1862_Ki', 'CHEMBL1871_Ki', 'CHEMBL2034_Ki', 'CHEMBL2047_EC50',
-                        'CHEMBL204_Ki', 'CHEMBL2147_Ki', 'CHEMBL214_Ki', 'CHEMBL218_EC50',
-                        'CHEMBL219_Ki', 'CHEMBL228_Ki', 'CHEMBL231_Ki', 'CHEMBL233_Ki',
-                        'CHEMBL234_Ki', 'CHEMBL235_EC50', 'CHEMBL236_Ki', 'CHEMBL237_EC50',
-                        'CHEMBL237_Ki', 'CHEMBL238_Ki', 'CHEMBL239_EC50', 'CHEMBL244_Ki',
-                        'CHEMBL262_Ki', 'CHEMBL264_Ki', 'CHEMBL2835_Ki', 'CHEMBL287_Ki',
-                        'CHEMBL2971_Ki', 'CHEMBL3979_EC50', 'CHEMBL4005_Ki', 'CHEMBL4203_Ki',
-                        'CHEMBL4616_EC50', 'CHEMBL4792_Ki']
+DATASET = pickle.load(open('data/datasetList.pkl', 'rb'))
+
+MOLECULEACE_DATALIST = DATASET['MOLECULEACE_DATALIST']
+OUR_DATALIST = DATASET['OURS']
     
 
 def process_data_QSAR(args, logger):
     # check the validity of SMILES
     df = pd.read_csv(args.data_path)
-    df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
+    df[args.smiles_columns] = df[args.smiles_columns].apply(check_molecule)
     df = df.dropna(subset=args.smiles_columns)
+    df = df.reset_index(drop=True)
 
     if args.split_sizes:
         _, valid_ratio, test_ratio = args.split_sizes
     # get splitting index and calculate the activity cliff based on MoleculeACE
     if args.split_type == 'moleculeACE':
         if 'split' not in df.columns and 'cliff_mol' not in df.columns:
-            df = split_data(df[args.smiles_columns].values,
-                            bioactivity=df[args.target_columns].values,
+            df = split_data(df[args.smiles_columns].values.tolist(),
+                            bioactivity=df[args.target_columns].values.tolist(),
                             in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
             df.to_csv(args.data_path, index=False)
             args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
@@ -93,10 +93,17 @@ def process_data_CPI(args, logger):
     if args.split_sizes:
         _, valid_ratio, test_ratio = args.split_sizes
 
-    if not os.path.exists(f'data/MoleculeACE/CPI_Integrated.csv'):
+    if not os.path.exists(args.data_path):
         # integrate bioactivity data
-        for assay_name in MOLECULEACE_DATALIST:
-            df = pd.read_csv(f'data/MoleculeACE/{assay_name}.csv')
+        if 'MoleculeACE' in args.data_path:
+            dataset = MOLECULEACE_DATALIST
+            datadir = 'MoleculeACE'
+        elif 'Ours' in args.data_path:
+            dataset = OUR_DATALIST
+            datadir = 'Ours'
+
+        for assay_name in dataset:
+            df = pd.read_csv(f'data/{datadir}/{assay_name}.csv')
             df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
             df = df.dropna(subset=args.smiles_columns)
 
@@ -105,10 +112,10 @@ def process_data_CPI(args, logger):
                                     bioactivity=df[args.target_columns].values,
                                     in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
                 df.to_csv(args.data_path, index=False)
-            df['Chembl_id'] = assay_name.split('_')[0]
-            df_data = pd.concat([df_data, df])
-            chembl_list.append(assay_name.split('_')[0])
-
+                df['Chembl_id'] = df['UniProt_id']
+                df_data = pd.concat([df_data, df])
+                chembl_list.append(assay_name.split('_')[0])
+        
         pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
         logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
 
@@ -123,11 +130,11 @@ def process_data_CPI(args, logger):
         df_data['Sequence'] = df_data['UniProt_id'].map(uni_seq)
         df_data = df_data.dropna(subset=['UniProt_id', 'Sequence'])
         df_data = df_data.reset_index(drop=True)
-        logger.info('Saving data to data/MoleculeACE/CPI_Integrated.csv')
-        df_data.to_csv(f'data/MoleculeACE/CPI_Integrated.csv', index=False)  
+        logger.info(f'Saving data to {args.data_path}')
+        df_data.to_csv(args.data_path, index=False)  
     else:
-        df_data = pd.read_csv(f'data/MoleculeACE/CPI_Integrated.csv')
-        logger.info('Loading data from data/MoleculeACE/CPI_Integrated.csv')
+        df_data = pd.read_csv(args.data_path)
+        logger.info(f'Loading data from {args.data_path}')
 
     chembl_list_2 = df_data['Chembl_id'].unique()
     logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
@@ -139,6 +146,8 @@ def process_data_CPI(args, logger):
                         list(df_data[df_data['split'].values == 'test'].index)
     val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
     train_idx = list(set(train_idx) - set(val_idx))
+    logger.info(f'total size: {len(df_data)}, train size: {len(train_idx)}, '
+                f'val size: {len(val_idx)}, test size: {len(test_idx)}')
 
     if args.baseline_model == 'DeepDTA':
         df = pd.DataFrame(zip(X_drug, X_target, y))
@@ -159,15 +168,18 @@ def process_data_CPI(args, logger):
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
 
         train_graph = {}
-        for s in train_data['smiles'].values:
+        logger.info('Training set: converting SMILES to graph data...')
+        for s in tqdm(train_data['smiles'].values):
             g = smiles_to_graph(s)
             train_graph[s] = g
         val_graph = {}
-        for s in val_data['smiles'].values:
+        logger.info('Validation set: converting SMILES to graph data...')
+        for s in tqdm(val_data['smiles'].values):
             g = smiles_to_graph(s)
             val_graph[s] = g
         test_graph = {}
-        for s in test_data['smiles'].values:
+        logger.info('Test set: converting SMILES to graph data...')
+        for s in tqdm(test_data['smiles'].values):
             g = smiles_to_graph(s)
             test_graph[s] = g
 
@@ -183,16 +195,16 @@ def process_data_CPI(args, logger):
                                              val_data['y'].values, \
                                              test_data['y'].values
         
-        train_data = TestbedDataset(root=args.save_path, dataset='train_data',
+        train_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_train',
                xd=train_smiles, xt=train_protein, y=train_label, smile_graph=train_graph)
         train_data = DataLoader(train_data, batch_size=512, shuffle=True)
         if len(val_data) > 0:
-            val_data = TestbedDataset(root=args.save_path, dataset='val_data',
+            val_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_val',
                     xd=val_smiles, xt=val_protein, y=val_label, smile_graph=val_graph)
             val_data = DataLoader(val_data, batch_size=512, shuffle=False)
         else:
             val_data = []
-        test_data = TestbedDataset(root=args.save_path, dataset='test_data',
+        test_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_test',
                 xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
         test_data = DataLoader(test_data, batch_size=512, shuffle=False)
         
@@ -213,8 +225,6 @@ def process_data_CPI(args, logger):
                                          test_data['y'].values, test_data)
         test_data = data.DataLoader(test_data, batch_size=64, shuffle=False, drop_last=False)
 
-    logger.info(f'total size: {len(df_data)}, train size: {len(train_data)}, '
-                f'val size: {len(val_data)}, test size: {len(test_data)}')
     return df_data, test_idx, train_data, val_data, test_data
 
 
@@ -357,9 +367,14 @@ def check_matching(original_smiles, original_bioactivity, smiles, bioactivity):
         if smi in smiles:
             assert bioactivity[smiles.index(smi)] == label, f"{smi} doesn't match label {label}"
 
+def is_cliff(smiles1, smiles2, y1, y2, similarity: float = 0.9, potency_fold: float = 10):
+    """ Calculates if two molecules are activity cliffs """
+    sim = moleculeace_similarity([smiles1, smiles2], similarity=similarity)[0][1]
+    fc = get_fc([y1, y2])[0][1]
+
+    return sim == 1 and fc >= potency_fold
 
 def check_cliffs(cliffs, n: int = 10):
-    from MoleculeACE.benchmark.cliffs import is_cliff
 
     # Find the location of 10 random cliffs and check if they are actually cliffs
     m = n

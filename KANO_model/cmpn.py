@@ -62,7 +62,7 @@ class CMPNEncoder(nn.Module):
         self.cls = nn.Parameter(torch.randn(1,133), requires_grad=True)
         self.W_i_atom_new = nn.Linear(self.atom_fdim*2, self.hidden_size, bias=self.bias)
 
-    def forward(self, step, mol_graph, features_batch=None) -> torch.FloatTensor:
+    def forward(self, step, mol_graph, features_batch=None, atom_output=False) -> torch.FloatTensor:
 
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, atom_num, fg_num, f_fgs, fg_scope = mol_graph.get_components()
         if self.args.cuda or next(self.parameters()).is_cuda:
@@ -142,12 +142,19 @@ class CMPNEncoder(nn.Module):
         
         # Readout
         mol_vecs = []
+        atom_vecs = []
         for i, (a_start, a_size) in enumerate(a_scope):
             if a_size == 0:
                 assert 0
             cur_hiddens = atom_hiddens.narrow(0, a_start, a_size)
             mol_vecs.append(cur_hiddens.mean(0))
-        
+            
+            if atom_output:
+                atom_vecs.append(cur_hiddens)
+                
+        if atom_output:
+            return atom_vecs
+                
         mol_vecs = torch.stack(mol_vecs, dim=0)
         return mol_vecs  # B x H
 
@@ -197,11 +204,7 @@ class BatchGRU(nn.Module):
 
 
 class CMPN(nn.Module):
-    def __init__(self,
-                 args: Namespace,
-                 atom_fdim: int = None,
-                 bond_fdim: int = None,
-                 graph_input: bool = False):
+    def __init__(self, args, atom_fdim = None, bond_fdim = None, graph_input = False):
         super(CMPN, self).__init__()
         self.args = args
         self.atom_fdim = get_atom_fdim(args)
@@ -211,12 +214,12 @@ class CMPN(nn.Module):
         # self.bond_fdim = BOND_FDIM or get_bond_fdim(args) + \
         #                     (not args.atom_messages) * self.atom_fdim # * 2
         self.graph_input = graph_input
+        self.atom_output = args.atom_output
         self.encoder = CMPNEncoder(self.args, self.atom_fdim, self.bond_fdim)
 
     def forward(self, step, prompt: bool, batch,
                 features_batch: List[np.ndarray] = None) -> torch.FloatTensor:
         if not self.graph_input:  # if features only, batch won't even be used
             batch = mol2graph(batch, self.args, prompt)
-
-        output = self.encoder.forward(step, batch, features_batch)
+        output = self.encoder.forward(step, batch, features_batch, atom_output=self.atom_output)
         return output

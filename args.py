@@ -50,20 +50,21 @@ def add_args():
                         help='Maximum number of data points to load')
     
     # training arguments
-    parser.add_argument('--baseline_model', type=str, default=None,
-                        choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
-                                 'GAT', 'GCN', 'AFP', 'MPNN', 'CNN', 'Transformer','LSTM',
-                                 'DeepDTA', 'GraphDTA', 'MolTrans'],
-                        help='Type of baseline model to train')
     parser.add_argument('--checkpoint_path', type=str,
                         default='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl',
                         help='Path to model checkpoint (.pt file)')
+    parser.add_argument('--loss', type=str, default='MSE CLS CL',
+                        help='Loss function seperated with space. MSE: mean squared error, CLS: cross entropy loss, CL: contrastive loss')
+    parser.add_argument('--loss_weights', type=str, nargs='+', default='1 1 1',
+                        help='Weights for different loss functions seperated with space')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='Batch size')
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='Learning rate')
+    parser.add_argument('--temperature', type=float, default=0.1)
+    parser.add_argument('--warmup_epochs', type=int, default=2)
     parser.add_argument('--encoder_name', type=str, default='CMPNN',
                         help='selected molecule encoder')
     parser.add_argument('--metric', type=str, default='auc',
@@ -72,6 +73,15 @@ def add_args():
     
     # model arguments
     # you may not able to change most of these arguments if you use a pretrained model
+    parser.add_argument('--train_model', type=str, default='KANO_Prot_Siams', 
+                        choices=['KANO_Prot_Siams', 'KANO_Siams'], 
+                        help='KANO_Prot_Siams for CPI-type model, KANO_Siams for QSAR-type model')
+    parser.add_argument('--baseline_model', type=str, default=None,
+                        choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
+                                 'GAT', 'GCN', 'AFP', 'MPNN', 'CNN',
+                                 'Transformer','LSTM', 'KANO',
+                                 'DeepDTA', 'GraphDTA', 'MolTrans'],
+                        help='Type of baseline model to train if select mode as baseline_QSAR or baseline_CPI')
     parser.add_argument('--hidden_size', type=int, default=300)
     parser.add_argument('--ffn_hidden_size', type=int, default=300)
     parser.add_argument('--ffn_num_layers', type=int, default=2)
@@ -79,14 +89,16 @@ def add_args():
     parser.add_argument('--activation', type=str, default='ReLU')
     parser.add_argument('--depth', type=int, default=3)
     parser.add_argument('--step', type=str, default='functional_prompt')
-    parser.add_argument('--temperature', type=float, default=0.1)
-    parser.add_argument('--warmup_epochs', type=int, default=2)
-    
+    parser.add_argument('--num_heads', type=int, default=5)
+    parser.add_argument('--pooling', type=str, default='cross_attn', choices=['cross_attn', 'mean'])
+
     args = parser.parse_args()
     # add and modify some args
     args.data_name = args.data_path.split('/')[-1].split('.')[0]
     if not args.no_cuda and torch.cuda.is_available():
         args.cuda = True
+    else:
+        args.cuda = False
     args.atom_messages = False
     args.use_input_features = None
     args.bias = False
@@ -97,12 +109,18 @@ def add_args():
     args.final_lr = args.lr
     args.num_lrs = 1
     args.num_runs = 1
-    if args.baseline_model in ['DeepDTA', 'GraphDTA']:
+    args.smiles_columns = 'smiles'
+    args.target_columns = 'y'
+
+    loss_func = args.loss.split(' ')
+    loss_wt = args.loss_weights.split(' ')
+    args.loss_func_wt = dict(zip(loss_func, loss_wt))
+
+    if args.baseline_model in ['DeepDTA', 'GraphDTA', 'MolTrans']:
         args.mode == 'baseline_CPI'
     if args.metric in ['auc', 'prc-auc', 'accuracy', 'r2']:
         args.minimize_score = False
     elif args.metric in ['rmse', 'mae', 'cross_entropy']:
         args.minimize_score = True
-    args.smiles_columns = ['smiles']
-    args.target_columns = ['y']
+
     return args

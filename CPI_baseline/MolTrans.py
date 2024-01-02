@@ -36,7 +36,7 @@ class MolTrans():
         self.model = self.model.to(self.device)
 
         self.LR = 1e-4
-        self.NUM_EPOCHS = 50
+        self.NUM_EPOCHS = 13
         self.LOG_INTERVAL = 1000
         logger.info("Batch size %d, Learning rate %f, Num epochs %d" %
                     (config['batch_size'], self.LR, self.NUM_EPOCHS))

@@ -1,4 +1,0 @@
-epochs: 44
-hidden: 512
-kernel_size: 4
-lr: 5.0e-05

@@ -1,21 +1,9 @@
+# Description: Run CPI experiments
+model=$1
+echo $model
 python main.py --gpu 0 \
+               --data_path data/MoleculeACE/CPI_plus_Integrated.csv \
                 --mode baseline_CPI \
                 --dataset_type regression \
-                --data_path test \
                 --seed 0 \
-                --baseline_model GraphDTA
-
-python main.py --gpu 0 \
-                --mode baseline_CPI \
-                --dataset_type regression \
-                --data_path test \
-                --seed 0 \
-                --baseline_model MolTrans
-
-python main.py --gpu 0 \
-                --mode baseline_CPI \
-                --dataset_type regression \
-                --data_path test \
-                --seed 0 \
-                --baseline_model DeepDTA
-
+                --baseline_model $model
