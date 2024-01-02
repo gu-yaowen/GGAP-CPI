@@ -1,0 +1,19 @@
+# Ignore a specific file
+# data_processing.ipynb
+
+# Ignore all .log files
+*.ipynb
+*.pkl
+*.sbatch
+*.sh
+*.out
+
+# Ignore a specific directory
+data/
+exp_results/
+result/
+run/
+Feature/
+
+# Ignore all .txt files in a specific directory
+# notes/*.txt
