@@ -1,0 +1,39 @@
+# Standard hyperparameters for Graph Attention Networks
+epochs: 300
+# Gnn features
+node_hidden:
+  - 32
+  - 64
+  - 128
+  - 256
+  - 512
+fc_hidden:
+  - 128
+  - 256
+  - 512
+n_fc_layers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+n_gat_layers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+transformer_hidden:
+  - 64
+  - 128
+  - 256
+  - 512
+gatv2:
+  - true
+  - false
+dropout:
+  - 0
+lr:
+  - 0.0005
+  - 0.00005
+  - 0.000005

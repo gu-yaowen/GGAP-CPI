@@ -9,6 +9,7 @@ import numpy as np
 from rdkit import Chem
 from yaml import load, Loader
 from argparse import Namespace
+from warnings import simplefilter
 from chemprop.data import StandardScaler
 from chembl_webresource_client.new_client import new_client
 
@@ -43,12 +44,19 @@ def set_up(args):
     define_logging(args, logger)
 
     simplefilter(action='ignore', category=Warning)
-    logger.info(f'current task: {args.data_name}')
-    logger.info(f'arguments: {args}')
+
+    logger.info(f'current task: {args.data_name}') if args.print else None
+    logger.info(f'arguments: {args}') if args.print else None
 
     set_seed(args.seed)
-    logger.info(f'random seed: {args.seed}')
-    logger.info(f'save path: {args.save_path}')
+
+    logger.info(f'random seed: {args.seed}') if args.print else None
+    logger.info(f'save path: {args.save_path}') if args.print else None
+
+    args.device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() 
+                    and not args.no_cuda else 'cpu')
+    logger.info(f'device: {args.device}') if args.print else None
+    
     return args, logger
 
 
@@ -127,31 +135,28 @@ def get_protein_sequence(uniprot_id):
         return None
     
 
-def generate_siamse_smi(smiles_list, args, query_prot_ids, 
-                        support_prot, support_dataset, strategy='random'):
-    smiles, labels = [], []
-    for idx, smi in enumerate(smiles_list):
-        prot_id = query_prot_ids[idx]
-        support_idx = np.where(support_prot == prot_id)[0]
-        if strategy == 'random':
-            siamse_idx = np.random.choice(support_idx, 1)[0]
-        support_data = support_dataset[siamse_idx]
-        smiles.append(support_data.smiles)
-        labels.append(support_data.targets)
-    return smiles, labels
-
-
 def set_collect_metric(args):
-    metric_dict = {'loss':[]}
+    metric_dict = {}
+    if args.mode == 'train':
+        metric_dict['Total'] = []
+        for key in args.loss_func_wt.keys():
+            metric_dict[key] = []
+    else: 
+        metric_dict['loss'] = []
     for metric in args.metric_func:
         metric_dict[f'val_{metric}'] = []
         metric_dict[f'test_{metric}'] = []
     return metric_dict
 
 
-def collect_metric_epoch(args: Namespace, collect_metric: dict, loss: float,
+def collect_metric_epoch(args: Namespace, collect_metric: dict, loss: float or dict,
                          val_scores: dict, test_scores: dict):
-    collect_metric['loss'].append(loss)
+    if isinstance(loss, dict):
+        for key in loss.keys():
+            collect_metric[key].append(loss[key])
+    else:
+        collect_metric['loss'].append(loss)
+
     for metric in args.metric_func:
         collect_metric[f'val_{metric}'].append(val_scores[metric])
         collect_metric[f'test_{metric}'].append(test_scores[metric])

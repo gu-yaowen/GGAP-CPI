@@ -47,16 +47,18 @@ def process_data_QSAR(args, logger):
     if args.split_sizes:
         _, valid_ratio, test_ratio = args.split_sizes
     # get splitting index and calculate the activity cliff based on MoleculeACE
-    if args.split_type == 'moleculeACE':
-        if 'split' not in df.columns and 'cliff_mol' not in df.columns:
-            df = split_data(df[args.smiles_columns].values.tolist(),
-                            bioactivity=df[args.target_columns].values.tolist(),
-                            in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
-            df.to_csv(args.data_path, index=False)
-            args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
-        else:
-            args.ignore_columns = None
-        pos_num, neg_num = len(df[df['cliff_mol']==1]), len(df[df['cliff_mol']==0])
+    # if args.split_type == 'moleculeACE':
+    if 'split' not in df.columns and 'cliff_mol' not in df.columns:
+        df = split_data(df[args.smiles_columns].values.tolist(),
+                        bioactivity=df[args.target_columns].values.tolist(),
+                        in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
+        df.to_csv(args.data_path, index=False)
+        args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
+    else:
+        args.ignore_columns = None
+    pos_num, neg_num = len(df[df['cliff_mol']==1]), len(df[df['cliff_mol']==0])
+
+    if args.print:
         logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
 
     # get data from csv file
@@ -78,9 +80,10 @@ def process_data_QSAR(args, logger):
     train_data, val_data, test_data = MoleculeDataset(train_data), \
                                     MoleculeDataset(val_data), \
                                     MoleculeDataset(test_data)
-    logger.info(f'total size: {len(data)}, train size: {len(train_data)}, '
-                f'val size: {len(val_data)}, test size: {len(test_data)}')
-    
+    if args.print:
+        logger.info(f'total size: {len(data)}, train size: {len(train_data)}, '
+                    f'val size: {len(val_data)}, test size: {len(test_data)}')
+        
     return df, test_idx, train_data, val_data, test_data
 
 
@@ -117,27 +120,33 @@ def process_data_CPI(args, logger):
                 chembl_list.append(assay_name.split('_')[0])
         
         pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
-        logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
+        if args.print:
+            logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
+            # protein ID mapping and sequence retrieval
+            logger.info('Mapping ChEMBL IDs to UniProt IDs...')
 
-        # protein ID mapping and sequence retrieval
-        logger.info('Mapping ChEMBL IDs to UniProt IDs...')
         chembl_uni = dict(zip(chembl_list,
                             [chembl_to_uniprot(chembl_id) for chembl_id in chembl_list]))
-        logger.info('Getting target sequences...')
+        if args.print:
+            logger.info('Getting target sequences...')
+
         uni_seq = dict(zip(chembl_uni.values(),
                         [get_protein_sequence(uni_id) for uni_id in chembl_uni.values()]))
         df_data['UniProt_id'] = df_data['Chembl_id'].map(chembl_uni)
         df_data['Sequence'] = df_data['UniProt_id'].map(uni_seq)
         df_data = df_data.dropna(subset=['UniProt_id', 'Sequence'])
         df_data = df_data.reset_index(drop=True)
-        logger.info(f'Saving data to {args.data_path}')
+        if args.print:
+            logger.info(f'Saving data to {args.data_path}')
         df_data.to_csv(args.data_path, index=False)  
     else:
         df_data = pd.read_csv(args.data_path)
-        logger.info(f'Loading data from {args.data_path}')
+        if args.print:
+            logger.info(f'Loading data from {args.data_path}')
 
     chembl_list_2 = df_data['Chembl_id'].unique()
-    logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
+    if args.print:
+        logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
 
     X_drug = df_data['smiles'].values
     X_target = df_data['Sequence'].values
@@ -146,8 +155,9 @@ def process_data_CPI(args, logger):
                         list(df_data[df_data['split'].values == 'test'].index)
     val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
     train_idx = list(set(train_idx) - set(val_idx))
-    logger.info(f'total size: {len(df_data)}, train size: {len(train_idx)}, '
-                f'val size: {len(val_idx)}, test size: {len(test_idx)}')
+    if args.print:
+        logger.info(f'total size: {len(df_data)}, train size: {len(train_idx)}, '
+                    f'val size: {len(val_idx)}, test size: {len(test_idx)}')
 
     if args.baseline_model == 'DeepDTA':
         df = pd.DataFrame(zip(X_drug, X_target, y))
@@ -168,17 +178,20 @@ def process_data_CPI(args, logger):
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
 
         train_graph = {}
-        logger.info('Training set: converting SMILES to graph data...')
+        if args.print:
+            logger.info('Training set: converting SMILES to graph data...')
         for s in tqdm(train_data['smiles'].values):
             g = smiles_to_graph(s)
             train_graph[s] = g
         val_graph = {}
-        logger.info('Validation set: converting SMILES to graph data...')
+        if args.print:
+            logger.info('Validation set: converting SMILES to graph data...')
         for s in tqdm(val_data['smiles'].values):
             g = smiles_to_graph(s)
             val_graph[s] = g
         test_graph = {}
-        logger.info('Test set: converting SMILES to graph data...')
+        if args.print:
+            logger.info('Test set: converting SMILES to graph data...')
         for s in tqdm(test_data['smiles'].values):
             g = smiles_to_graph(s)
             test_graph[s] = g

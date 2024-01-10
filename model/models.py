@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch_geometric.data import Batch
 from KANO_model.model import MoleculeModel, prompt_generator_output
@@ -13,7 +14,7 @@ class KANO_Siams(nn.Module):
 
         :param classification: Whether the model is a classification model.
         """
-        super(KANO_Siam, self).__init__()
+        super(KANO_Siams, self).__init__()
         self.classification = classification
         if self.classification:
             self.sigmoid = nn.Sigmoid()
@@ -47,7 +48,7 @@ class KANO_Siams(nn.Module):
         # output2 = self.molecule_encoder.ffn(mol2)
         siams_mol = torch.cat([mol1, mol2, mol1 - mol2], dim=-1)
         siams_output = self.siams_decoder.ffn(siams_mol)
-
+        # return [output1], [mol1]
         return [output1, siams_output], [mol1, mol2]
 
 

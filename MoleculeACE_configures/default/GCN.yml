@@ -1,0 +1,37 @@
+# Standard hyperparameters for Graph Convolutional Networks
+epochs: 300
+node_hidden:
+  - 32
+  - 64
+  - 128
+  - 256
+  - 512
+# Hidden features
+transformer_hidden:
+  - 64
+  - 128
+  - 256
+  - 512
+# Number of layers
+n_conv_layers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+n_fc_layers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+fc_hidden:
+  - 128
+  - 256
+  - 512
+dropout:
+  - 0
+lr:
+  - 0.0005
+  - 0.00005
+  - 0.000005

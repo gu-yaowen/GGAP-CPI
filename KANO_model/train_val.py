@@ -1,9 +1,20 @@
+import os
 import random
 from chemprop.data import MoleculeDataset
 import torch
+import pickle
 from chemprop.nn_utils import NoamLR
+from chemprop.data import StandardScaler
+from data_prep import process_data_QSAR
+from torch.optim.lr_scheduler import ExponentialLR
 from chemprop.train.evaluate import evaluate_predictions
-from utils import get_metric_func
+from KANO_model.model import build_model, add_functional_prompt
+from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func
+from utils import set_save_path, set_seed, set_collect_metric, \
+                  collect_metric_epoch, get_metric_func, save_checkpoint, \
+                  define_logging, set_up
+from MoleculeACE.benchmark.utils import Data, calc_rmse, calc_cliff_rmse
+
 
 def predict_epoch(args, model, data, scaler=None):
     model.eval()
@@ -89,14 +100,14 @@ def evaluate_epoch(args, model, data, scaler):
     return results
 
 
-def train_KANO(args):
-    args, logger = set_up(args)
+def train_KANO(args, logger):
 
     # check in the current task is finished previously, if so, skip
-    if os.path.exists(os.path.join(args.save_path, 'KANO_test_pred.csv')):
-        logger.info(f'current task {args.data_name} has been finished, skip...')
-        return
-    
+    # if os.path.exists(os.path.join(args.save_path, 'KANO_test_pred.csv')):
+    #     logger.info(f'current task {args.data_name} has been finished, skip...')
+    #     return
+    args.atom_output = False
+
     df, test_idx, train_data, val_data, test_data = process_data_QSAR(args, logger)
     if len(train_data) <= args.batch_size:
         args.batch_size = 64
@@ -126,24 +137,24 @@ def train_KANO(args):
         add_functional_prompt(model, args)
     if args.cuda:
         model = model.cuda()
-    logger.info('load KANO model')
-    logger.info(f'model: {model}')
+    logger.info('load KANO model') if args.print else None
+    logger.info(f'model: {model}') if args.print else None
 
     # Optimizers
     optimizer = build_optimizer(model, args)
-    logger.info(f'optimizer: {optimizer}')
+    logger.info(f'optimizer: {optimizer}') if args.print else None
 
     # Learning rate schedulers
     args.train_data_size = len(train_data)
     scheduler = build_lr_scheduler(optimizer, args)
-    logger.info(f'scheduler: {scheduler}')
+    logger.info(f'scheduler: {scheduler}') if args.print else None
 
     # Loss function
     loss_func = build_loss_func(args)
-    logger.info(f'loss function: {loss_func}')
+    logger.info(f'loss function: {loss_func}') if args.print else None
 
     args.metric_func = get_metric_func(args)
-    logger.info(f'metric function: {args.metric_func}')
+    logger.info(f'metric function: {args.metric_func}') if args.print else None
 
     n_iter = 0
     args.prompt = False
@@ -151,7 +162,7 @@ def train_KANO(args):
     best_score = float('inf') if args.minimize_score else -float('inf')
     
     # training
-    logger.info(f'training...')
+    logger.info(f'training...') if args.print else None
     for epoch in range(args.epochs):
         n_iter, loss = train_epoch(args, model, train_data, loss_func, optimizer, scheduler, n_iter)
         
@@ -168,7 +179,7 @@ def train_KANO(args):
         
         logger.info('Epoch : {:02d}, Training Loss : {:.4f}, ' \
                     'Validation score : {:.4f}, Test score : {:.4f}'.format(epoch, loss,
-                    list(val_scores.values())[0][0], list(test_scores.values())[0][0]))
+                    list(val_scores.values())[0][0], list(test_scores.values())[0][0])) if args.print else None
         metric_dict = collect_metric_epoch(args, metric_dict, loss, val_scores, test_scores)
         
         # if args.minimize_score and list(val_scores.values())[0][0] < best_score or \
@@ -179,7 +190,7 @@ def train_KANO(args):
             save_checkpoint(os.path.join(args.save_path, 'KANO_model.pt'), model, scaler, features_scaler, args) 
             # logger.info('Best model saved at epoch : {:02d}, Validation score : {:.4f}'.format(best_epoch, best_score))
     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
-                'test score: {:.4f}'.format(best_epoch, best_score, best_test_score))
+                'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
     # save results
     pickle.dump(metric_dict, open(os.path.join(args.save_path, 'metric_dict.pkl'), 'wb'))
@@ -191,7 +202,7 @@ def train_KANO(args):
                        calc_cliff_rmse(y_test_pred=test_data['Prediction'].values,
                                        y_test=test_data['y'].values,
                                        cliff_mols_test=test_data['cliff_mol'].values)
-    logger.info('Prediction saved, RMSE: {:.4f}, RMSE_cliff: {:.4f}'.format(rmse, rmse_cliff))
+    logger.info('Prediction saved, RMSE: {:.4f}, RMSE_cliff: {:.4f}'.format(rmse, rmse_cliff)) if args.print else None
 
     logger.handlers.clear()
     

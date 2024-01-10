@@ -27,13 +27,10 @@ def ContrastiveLoss(anchor, positive, negatives, margin, temperature=1.0):
 class CompositeLoss(nn.Module):
     def __init__(self, loss_func_wt, margin=1.0, temperature=1.0):
         super(CompositeLoss, self).__init__()
-        if 'MSE' in loss_func_wt.keys():
-            self.mse_weight = float(loss_func_wt['MSE'])
-        if 'CLS' in loss_func_wt.keys():
-            self.classification_weight = float(loss_func_wt['CLS'])
-        if 'CL' in loss_func_wt.keys():
-            self.contrastive_weight = float(loss_func_wt['CL'])
-
+        self.mse_weight = float(loss_func_wt['MSE']) if 'MSE' in loss_func_wt.keys() else 0
+        self.classification_weight = float(loss_func_wt['CLS']) if 'CLS' in loss_func_wt.keys() else 0
+        self.contrastive_weight = float(loss_func_wt['CL']) if 'CL' in loss_func_wt.keys() else 0
+    
         self.temperature = temperature
         self.margin = margin
         self.mse_loss = nn.MSELoss()
@@ -47,7 +44,7 @@ class CompositeLoss(nn.Module):
         if self.mse_weight > 0:
             mse_loss = self.mse_loss(output1, reg_labels)
         else:
-            mse_loss = 0
+            mse_loss = torch.tensor(0).to(cls_labels.device)
 
         # contrastive loss
         if self.contrastive_weight > 0:
@@ -55,13 +52,13 @@ class CompositeLoss(nn.Module):
                                                torch.concat([mol1, mol2_, mol2, mol2_]),
                                                self.margin, self.temperature)
         else:
-            contrastive_loss = 0
+            contrastive_loss = torch.tensor(0).to(cls_labels.device)
 
         # classification loss
         if self.classification_weight > 0:
             classification_loss = self.bce_loss(siams_output.squeeze(), cls_labels)
         else:
-            classification_loss = 0
+            classification_loss = torch.tensor(0).to(cls_labels.device)
             
         final_loss =  self.mse_weight * mse_loss +\
                       self.contrastive_weight * contrastive_loss +\
