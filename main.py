@@ -19,12 +19,14 @@ from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_fun
 
 def run_QSAR(args):
     from chemprop.data import MoleculeDataset
+    from chemprop.nn_utils import initialize_weights
     from chemprop.data.utils import get_data
     from chemprop.train.evaluate import evaluate_predictions
 
     from model.models import KANO_Siams
     from model.loss import CompositeLoss
     from model.train_val import train_epoch, evaluate_epoch, predict_epoch
+    from model.utils import generate_siamse_smi
 
     args, logger = set_up(args)
     
@@ -59,8 +61,9 @@ def run_QSAR(args):
                                         MoleculeDataset(val_data), \
                                         MoleculeDataset(test_data)
 
-    if len(train_data) <= args.batch_size:
+    if len(train_data) * args.siams_num <= args.batch_size:
         args.batch_size = 64
+        logger.info(f'batch size is too large, reset to {args.batch_size}') if args.print else None
 
     if args.features_scaling:
         features_scaler = train_data.normalize_features(replace_nan_token=0)
@@ -83,10 +86,11 @@ def run_QSAR(args):
     model = KANO_Siams(args, 
                         classification=True, multiclass=False,
                         multitask=False, prompt=True).to(args.device)
+    initialize_weights(model)
+
     if args.checkpoint_path is not None:
-        model.molecule_encoder.load_state_dict(torch.load(
-                        args.checkpoint_path, map_location='cpu'), strict=False)
-    logger.info('load KANO model') if args.print else None
+        model.molecule_encoder.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'), strict=False)
+        logger.info('load KANO pretrained model') if args.print else None
     logger.info(f'model: {model}') if args.print else None
 
     # Optimizers
@@ -100,7 +104,7 @@ def run_QSAR(args):
 
     # Loss function
     loss_func = CompositeLoss(args.loss_func_wt).to(args.device)
-    logger.info(f'loss function: {loss_func}') if args.print else None
+    logger.info(f'loss function: {loss_func}, loss weights: {args.loss_func_wt}') if args.print else None
 
     args.metric_func = get_metric_func(args)
     logger.info(f'metric function: {args.metric_func}') if args.print else None
@@ -109,43 +113,56 @@ def run_QSAR(args):
     metric_dict = set_collect_metric(args)
     best_score = float('inf') if args.minimize_score else -float('inf')
 
+    # process data for siamese pairs
+    logger.info(f'generating siamese pairs...') if args.print else None
+    query_train, siams_train = generate_siamse_smi(train_data, train_prot,
+                                                  train_data, train_prot,
+                                                  strategy='random', num=args.siams_num)
+    query_val, siams_val = generate_siamse_smi(val_data, val_prot,
+                                              train_data, train_prot,
+                                              strategy='random', num=args.siams_num)
+    query_test, siams_test = generate_siamse_smi(test_data, test_prot,
+                                                train_data, train_prot,
+                                                strategy='full', num=args.siams_num)
     # training
     logger.info(f'training...') if args.print else None
     for epoch in range(args.epochs):
-        n_iter, loss_collect = train_epoch(args, model, train_data, train_prot, 
+        n_iter, loss_collect = train_epoch(args, model, query_train, train_prot, siams_train, 
                                            loss_func, optimizer, scheduler, n_iter)
         if isinstance(scheduler, ExponentialLR):
             scheduler.step()
         if len(val_data) > 0:
-            val_scores = evaluate_epoch(args, model, val_data, val_prot, 
-                                        train_data, train_prot, None)
+            val_scores = evaluate_epoch(args, model, query_val, val_prot, siams_val, None)
         else:
-            val_scores = evaluate_epoch(args, model, train_data, train_prot, 
-                                        train_data, train_prot, None)
+            val_scores = evaluate_epoch(args, model, query_train, train_prot, siams_train, None)
         
-        test_pred = predict_epoch(args, model, test_data, test_prot, 
-                                  train_data, train_prot, scaler)
+        test_pred, _ = predict_epoch(args, model, query_test, test_prot, siams_test, scaler)
         test_scores = evaluate_predictions(test_pred, test_data.targets(),
-                                        args.num_tasks, args.metric_func, args.dataset_type)
+                                           args.num_tasks, args.metric_func, args.dataset_type)
 
-        logger.info('Epoch : {:02d}, Loss_Total: {:.4f}, Loss_MSE: {:.4f}, Loss_CLS: {:.4f}, Loss_CL: {:.4f}, ' \
-                    'Validation score : {:.4f}, Test score : {:.4f}'.format(epoch, 
+        logger.info('Epoch : {:02d}, Loss_Total: {:.3f}, Loss_MSE: {:.3f}, Loss_CLS: {:.3f}, Loss_CL: {:.3f}, ' \
+                    'Validation score : {:.3f}, Test score : {:.3f}'.format(epoch, 
                     loss_collect['Total'], loss_collect['MSE'], loss_collect['CLS'], loss_collect['CL'],
                     list(val_scores.values())[0][0], list(test_scores.values())[0][0])) if args.print else None
         metric_dict = collect_metric_epoch(args, metric_dict, loss_collect, val_scores, test_scores)
-
-        if loss_collect['Total'] < best_score:
-                best_score, best_epoch = list(val_scores.values())[0][-1], epoch
-                best_test_score = list(test_scores.values())[0][-1]
-                save_checkpoint(os.path.join(args.save_path, 'KANO_model.pt'), model, scaler, features_scaler, args) 
+        
+        if epoch == 0:
+            best_loss = loss_collect['MSE']
+        if loss_collect['MSE'] < best_loss:
+            best_loss = loss_collect['MSE']
+            best_score, best_epoch = list(val_scores.values())[0][-1], epoch
+            best_test_score = list(test_scores.values())[0][-1]
+            save_checkpoint(os.path.join(args.save_path, f'{args.train_model}_model.pt'), model, scaler, features_scaler, args) 
     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
+    model.load_state_dict(torch.load(os.path.join(args.save_path, f'{args.train_model}_model.pt'))['state_dict'])
+    test_pred, _ = predict_epoch(args, model, query_test, test_prot, siams_test, scaler, strategy='full')
     # save results
-    pickle.dump(metric_dict, open(os.path.join(args.save_path, 'metric_dict.pkl'), 'wb'))
+    pickle.dump(metric_dict, open(os.path.join(args.save_path, f'{args.train_model}_metric_dict.pkl'), 'wb'))
     df['Prediction'] = None
     df.loc[test_idx, 'Prediction'] = test_pred
-    df[df['split']=='test'].to_csv(os.path.join(args.save_path, 'KANO_test_pred.csv'), index=False)
+    df[df['split']=='test'].to_csv(os.path.join(args.save_path, f'{args.train_model}_test_pred.csv'), index=False)
     test_data = df[df['split']=='test']
     rmse, rmse_cliff = calc_rmse(test_data['y'].values, test_data['Prediction'].values), \
                        calc_cliff_rmse(y_test_pred=test_data['Prediction'].values,

@@ -33,18 +33,18 @@ class CompositeLoss(nn.Module):
     
         self.temperature = temperature
         self.margin = margin
-        self.mse_loss = nn.MSELoss()
-        self.bce_loss = nn.BCEWithLogitsLoss()
+        self.mse_loss = nn.MSELoss(reduction='mean')
+        self.bce_loss = nn.BCEWithLogitsLoss(reduction='mean')
         
     def forward(self, output, query, support, reg_labels, cls_labels):
-        output1, siams_output = output
+        output_reg, output_cls = output[0], output[1]
         mol1, mol1_ = query[0], query[1]
         mol2, mol2_ = support[0], support[1]
         # MSE loss
         if self.mse_weight > 0:
-            mse_loss = self.mse_loss(output1, reg_labels)
+            mse_loss = self.mse_loss(output_reg, reg_labels)
         else:
-            mse_loss = torch.tensor(0).to(cls_labels.device)
+            mse_loss = torch.tensor(0).to(reg_labels.device)
 
         # contrastive loss
         if self.contrastive_weight > 0:
@@ -52,14 +52,14 @@ class CompositeLoss(nn.Module):
                                                torch.concat([mol1, mol2_, mol2, mol2_]),
                                                self.margin, self.temperature)
         else:
-            contrastive_loss = torch.tensor(0).to(cls_labels.device)
+            contrastive_loss = torch.tensor(0).to(reg_labels.device)
 
         # classification loss
         if self.classification_weight > 0:
-            classification_loss = self.bce_loss(siams_output.squeeze(), cls_labels)
+            classification_loss = self.bce_loss(output_cls.squeeze(), cls_labels)
         else:
-            classification_loss = torch.tensor(0).to(cls_labels.device)
-            
+            classification_loss = torch.tensor(0).to(reg_labels.device)
+
         final_loss =  self.mse_weight * mse_loss +\
                       self.contrastive_weight * contrastive_loss +\
                       self.classification_weight * classification_loss

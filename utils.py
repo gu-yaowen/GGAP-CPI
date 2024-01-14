@@ -94,7 +94,11 @@ def check_molecule(smiles):
     if mol is None:
         return False
     else:
-        return Chem.MolToSmiles(mol)
+        if mol.GetNumAtoms() <= 1:
+            print(f'Error: {smiles} is invalid')
+            return False
+        else:
+            return Chem.MolToSmiles(mol, isomericSmiles=True)
 
 
 def chembl_to_uniprot(chembl_id):

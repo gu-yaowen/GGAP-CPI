@@ -58,9 +58,11 @@ def add_args():
     # parser.add_argument('--loss', type=str, default='MSE CLS CL',
     #                     help='Loss function seperated with space. MSE: mean squared error, CLS: cross entropy loss, CL: contrastive loss')
     parser.add_argument('--loss_weights', type=str, default='1 1 1',
-                        help='Weights for MSE, CL, and CLS loss functions seperated with space'
-                        'Note: MSE: mean squared error, CL: contrastive loss, CLS: cross entropy loss'
+                        help='Weights for MSE, CLS, and CL loss functions seperated with space'
+                        'Note: MSE: mean squared error, CLS: cross entropy loss, CL: contrastive loss'
                         'Set 0 to ignore the specific loss function')
+    parser.add_argument('--siams_num', type=int, default=5, 
+                        help='Number of siamese pairs')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='Batch size')
     parser.add_argument('--epochs', type=int, default=100,
