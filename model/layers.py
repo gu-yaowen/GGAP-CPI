@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
@@ -7,7 +8,8 @@ class ProteinEncoder(nn.Module):
     def __init__(self, args, fc_dim=512):
         super(ProteinEncoder, self).__init__()
         self.args = args
-        gcn_dims = [1280] + [fc_dim, 300, 300]
+        # gcn_dims = [1280] + [fc_dim, 300, 300]
+        gcn_dims = [1280] + [300]
         gcn_layers = [GCNConv(gcn_dims[i-1], gcn_dims[i], bias=True) for i in range(1, len(gcn_dims))]
 
         self.gcn = nn.ModuleList(gcn_layers)
@@ -24,15 +26,33 @@ class ProteinEncoder(nn.Module):
                 x = x + torch.sign(x) * F.normalize(random_noise, dim=-1) * 0.1
         data.x = x
         num_graphs = data.num_graphs
-        embeddings_list = []
-
+        node_embeddings_list = []
+        graph_embeddings_list = []
         for i in range(num_graphs):
             mask = data.batch == i
             graph_embeddings = data.x[mask]
-            embeddings_list.append(graph_embeddings)
-        return embeddings_list
+            node_embeddings_list.append(graph_embeddings)
+            graph_embeddings_list.append(torch.mean(graph_embeddings, dim=0))
+        graph_embeddings_list = torch.stack(graph_embeddings_list, dim=0)
+        return node_embeddings_list, graph_embeddings_list
     
-    
+
+class FeedForwardNetwork(nn.Module):
+    def __init__(self, hidden_size, ffn_size):
+        super(FeedForwardNetwork, self).__init__()
+
+        self.layer1 = nn.Linear(hidden_size, ffn_size)
+        #        self.gelu = GELU()
+        self.relu = nn.ReLU(inplace=True)
+        self.layer2 = nn.Linear(ffn_size, hidden_size)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.relu(x)
+        x = self.layer2(x)
+        return x
+
+
 class MultiHeadCrossAttentionPooling(nn.Module):
     def __init__(self, d_model, num_heads, dropout_rate=0.1, pooling='mean'):
         super(MultiHeadCrossAttentionPooling, self).__init__()
@@ -40,11 +60,15 @@ class MultiHeadCrossAttentionPooling(nn.Module):
         self.num_heads = num_heads
         self.d_k = d_model // num_heads
 
+        # self.self_attention_norm = nn.LayerNorm(d_model)
         self.query_linear = nn.Linear(d_model, d_model)
         self.key_linear = nn.Linear(d_model, d_model)
         self.value_linear = nn.Linear(d_model, d_model)
         self.dropout = nn.Dropout(dropout_rate)
-        self.out_linear = nn.Linear(d_model, d_model)
+
+        self.ffn_norm = nn.LayerNorm(d_model)
+        self.out_linear = FeedForwardNetwork(d_model, d_model)
+        self.self_attention_dropout = nn.Dropout(dropout_rate)
         self.pooling = pooling
 
     def forward(self, query_list, key_list):
@@ -63,6 +87,8 @@ class MultiHeadCrossAttentionPooling(nn.Module):
             query_masks[i, :q.size(0)] = True
             key_masks[i, :k.size(0)] = True
 
+        # padded_queries = self.self_attention_norm(padded_queries)
+        # padded_keys = self.self_attention_norm(padded_keys)
         # linear transformation
         queries_transformed = self.query_linear(padded_queries).view(len(query_list), max_n, self.num_heads, self.d_k)
         keys_transformed = self.key_linear(padded_keys).view(len(key_list), max_m, self.num_heads, self.d_k)
@@ -80,7 +106,7 @@ class MultiHeadCrossAttentionPooling(nn.Module):
         query_masks = query_masks.unsqueeze(1).unsqueeze(3)
         key_masks = key_masks.unsqueeze(1).unsqueeze(2)
         mask = query_masks & key_masks
-        scores = scores.masked_fill(~mask, float('-inf'))
+        scores = scores.masked_fill(~mask, float(1e-8))
 
         # Softmax
         attention = F.softmax(scores, dim=-1)
@@ -89,8 +115,11 @@ class MultiHeadCrossAttentionPooling(nn.Module):
         # aggregation
         context = torch.matmul(attention, values_transformed).transpose(1, 2).contiguous()
         context = context.view(len(query_list), max_n, self.d_model)
-        output = self.out_linear(context)
+        # context = self.ffn_norm(context)
 
+        output = self.out_linear(context)
+        # output = self.dropout(output)
+        # output = self.ffn_norm(output)
         # remove padding
         outputs = [output[i, :query_list[i].size(0), :] for i in range(len(query_list))]
 

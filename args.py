@@ -16,7 +16,7 @@ def add_args():
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='Turn off cuda')
     parser.add_argument('--mode', type=str, default='train',
-                        choices=['train', 'inference', 'baseline_QSAR', 'baseline_CPI'],
+                        choices=['train', 'inference', 'retrain', 'finetune', 'baseline_QSAR', 'baseline_CPI'],
                         help='Mode to run script in')
     parser.add_argument('--print', action='store_true', default=False,
                         help='Print log')
@@ -26,6 +26,8 @@ def add_args():
     parser.add_argument('--test_path', type=str,
                         help='Path to CSV file containing testing data for which predictions will be made',
                         default=None)
+    parser.add_argument('--model_path', type=str, default=None,
+                        help='Path to model checkpoint (.pt file) for inference, retrain, or finetune')
     parser.add_argument('--dataset_type', type=str, choices=['classification', 'regression', 'multiclass'],
                         help='Type of dataset')
     # parser.add_argument('--save_dir', type=str, default=None,
@@ -80,8 +82,8 @@ def add_args():
     # model arguments
     # you may not able to change most of these arguments if you use a pretrained model
     parser.add_argument('--train_model', type=str, default='KANO_Prot_Siams', 
-                        choices=['KANO_Prot_Siams', 'KANO_Siams'], 
-                        help='KANO_Prot_Siams for CPI-type model, KANO_Siams for QSAR-type model')
+                        choices=['KANO_Prot_Siams', 'KANO_Prot', 'KANO_Siams'], 
+                        help='KANO_Prot_Siams and KANO_Prot for CPI-type model, KANO_Siams for QSAR-type model')
     parser.add_argument('--baseline_model', type=str, default=None,
                         choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
                                  'GAT', 'GCN', 'AFP', 'MPNN', 'CNN',

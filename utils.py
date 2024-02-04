@@ -62,7 +62,11 @@ def set_up(args):
 
 def set_save_path(args):
     if args.mode == 'baseline_CPI':
-        args.save_path = os.path.join('exp_results', args.baseline_model, str(args.seed))
+        args.save_path = os.path.join('exp_results', args.baseline_model, 
+                                      args.data_name, str(args.seed))
+    elif args.train_model in ['KANO_Prot', 'KANO_Prot_Siams']:
+        args.save_path = os.path.join('exp_results', args.train_model, 
+                                      args.data_name, str(args.seed))
     else:
         args.save_path = os.path.join('exp_results', args.data_name, str(args.seed))
     if not os.path.exists(args.save_path):
@@ -89,17 +93,19 @@ def set_seed(random_seed):
 
 
 def check_molecule(smiles):
-    mol = molvs.Standardizer().standardize(Chem.MolFromSmiles(smiles))
-
-    if mol is None:
-        return False
-    else:
-        if mol.GetNumAtoms() <= 1:
-            print(f'Error: {smiles} is invalid')
-            return False
+    try:
+        mol = molvs.Standardizer().standardize(Chem.MolFromSmiles(smiles))
+        if mol is None:
+            return None
         else:
-            return Chem.MolToSmiles(mol, isomericSmiles=True)
-
+            if mol.GetNumAtoms() <= 1:
+                print(f'Error: {smiles} is invalid')
+                return None
+            else:
+                return Chem.MolToSmiles(mol, isomericSmiles=True)
+    except:
+        print(f'Error: {smiles} is invalid')
+        return None
 
 def chembl_to_uniprot(chembl_id):
     target = new_client.target
@@ -141,7 +147,7 @@ def get_protein_sequence(uniprot_id):
 
 def set_collect_metric(args):
     metric_dict = {}
-    if args.mode == 'train':
+    if args.mode in ['train', 'retrain', 'finetune']:
         metric_dict['Total'] = []
         for key in args.loss_func_wt.keys():
             metric_dict[key] = []
@@ -183,6 +189,8 @@ def save_checkpoint(path: str,
                     model,
                     scaler: StandardScaler = None,
                     features_scaler: StandardScaler = None,
+                    epoch: int = None,
+                    optimizer=None,
                     args: Namespace = None):
     """
     Saves a model checkpoint.
@@ -195,7 +203,9 @@ def save_checkpoint(path: str,
     """
     state = {
         'args': args,
+        'epoch': epoch,
         'state_dict': model.state_dict(),
+        'optimizer': optimizer.state_dict() if optimizer is not None else None,
         'data_scaler': {
             'means': scaler.means,
             'stds': scaler.stds
@@ -203,6 +213,7 @@ def save_checkpoint(path: str,
         'features_scaler': {
             'means': features_scaler.means,
             'stds': features_scaler.stds
-        } if features_scaler is not None else None
+        } if features_scaler is not None else None,
+        
     }
     torch.save(state, path)

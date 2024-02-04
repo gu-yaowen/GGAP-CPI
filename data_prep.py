@@ -105,6 +105,7 @@ def process_data_CPI(args, logger):
             dataset = OUR_DATALIST
             datadir = 'Ours'
 
+        logger.info(f'Integrating data from {datadir}...')
         for assay_name in dataset:
             df = pd.read_csv(f'data/{datadir}/{assay_name}.csv')
             df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
@@ -118,7 +119,8 @@ def process_data_CPI(args, logger):
                 df['Chembl_id'] = df['UniProt_id']
                 df_data = pd.concat([df_data, df])
                 chembl_list.append(assay_name.split('_')[0])
-        
+                args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
+
         pos_num, neg_num = len(df_data[df_data['cliff_mol']==1]), len(df_data[df_data['cliff_mol']==0])
         if args.print:
             logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
@@ -141,12 +143,16 @@ def process_data_CPI(args, logger):
         df_data.to_csv(args.data_path, index=False)  
     else:
         df_data = pd.read_csv(args.data_path)
+        # df_data[args.smiles_columns] = df_data[args.smiles_columns].applymap(check_molecule)
+        # df_data = df_data.dropna(subset=args.smiles_columns)
+        # df_data = df_data.reset_index(drop=True)
+        args.ignore_columns = None
         if args.print:
             logger.info(f'Loading data from {args.data_path}')
 
-    chembl_list_2 = df_data['Chembl_id'].unique()
-    if args.print:
-        logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
+    # chembl_list_2 = df_data['Chembl_id'].unique()
+    # if args.print:
+    #     logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
 
     X_drug = df_data['smiles'].values
     X_target = df_data['Sequence'].values
@@ -159,7 +165,29 @@ def process_data_CPI(args, logger):
         logger.info(f'total size: {len(df_data)}, train size: {len(train_idx)}, '
                     f'val size: {len(val_idx)}, test size: {len(test_idx)}')
 
-    if args.baseline_model == 'DeepDTA':
+    if args.mode in ['train', 'inference', 'retrain', 'finetune'] \
+        and args.train_model in ['KANO_Prot', 'KANO_Prot_Siams']:
+        # get data from csv file
+        args.task_names = get_task_names(args.data_path, args.smiles_columns,
+                                        args.target_columns, args.ignore_columns)
+        data = get_data(path=args.data_path, 
+                        smiles_columns=args.smiles_columns,
+                        target_columns=args.target_columns,
+                        ignore_columns=args.ignore_columns)
+        
+        # split data by MoleculeACE
+        if args.split_sizes:
+            train_idx, test_idx = df_data[df_data['split']=='train'].index, df_data[df_data['split']=='test'].index
+            val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
+            train_idx = list(set(train_idx) - set(val_idx))
+        train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
+                                            [data[i] for i in val_idx],
+                                            [data[i] for i in test_idx]])
+        train_data, val_data, test_data = MoleculeDataset(train_data), \
+                                        MoleculeDataset(val_data), \
+                                        MoleculeDataset(test_data)
+
+    elif args.mode == 'baseline_CPI' and args.baseline_model == 'DeepDTA':
         df = pd.DataFrame(zip(X_drug, X_target, y))
         df.rename(columns={0:'SMILES', 1: 'Sequence', 2: 'Label'}, inplace=True)
 
@@ -172,7 +200,7 @@ def process_data_CPI(args, logger):
         val_data = val_data.reset_index(drop=True)
         test_data = test_data.reset_index(drop=True)
 
-    elif args.baseline_model == 'GraphDTA':
+    elif args.mode == 'baseline_CPI' and args.baseline_model == 'GraphDTA':
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
@@ -221,7 +249,7 @@ def process_data_CPI(args, logger):
                 xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
         test_data = DataLoader(test_data, batch_size=512, shuffle=False)
         
-    elif args.baseline_model == 'MolTrans':
+    elif args.mode == 'baseline_CPI' and args.baseline_model == 'MolTrans':
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
         test_data = df_data.iloc[test_idx].reset_index(drop=True)

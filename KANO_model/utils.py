@@ -427,10 +427,7 @@ def mol2graph(smiles_batch: List[str],
         # if smiles in SMILES_TO_GRAPH:
         #     mol_graph = SMILES_TO_GRAPH[smiles]
         # else:
-        if len(smiles[0]) == 1:
-            mol_graph = MolGraph(smiles, args, prompt)
-        else:
-            mol_graph = MolGraph(smiles[0], args, prompt)
+        mol_graph = MolGraph(smiles, args, prompt)
             # if not args.no_cache:
             #     SMILES_TO_GRAPH[smiles] = mol_graph
         mol_graphs.append(mol_graph)

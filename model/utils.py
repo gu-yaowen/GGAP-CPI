@@ -1,3 +1,5 @@
+import os
+import torch
 import numpy as np
 from graphein.protein.graphs import construct_graph
 from graphein.protein.config import ProteinGraphConfig
@@ -10,7 +12,71 @@ from graphein.protein.edges.distance import (add_peptide_bonds,
                                              add_aromatic_sulphur_interactions,
                                              add_cation_pi_interactions
                                             )
+from chemprop.nn_utils import initialize_weights
 
+from utils import get_metric_func
+from model.models import KANO_Prot, KANO_Prot_Siams, KANO_Siams
+from model.loss import CompositeLoss
+from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func
+
+
+def set_up_model(args, logger):
+    assert args.mode in ['train', 'retrain', 'finetune', 'inference']
+    if args.train_model == 'KANO_Prot_Siams':
+        model = KANO_Prot_Siams(args,
+                        classification=True, multiclass=False,
+                        multitask=False, prompt=True).to(args.device)
+    elif args.train_model == 'KANO_Prot':
+        model = KANO_Prot(args,
+                        classification=True, multiclass=False,
+                        multitask=False, prompt=True).to(args.device)
+    elif args.train_model == 'KANO_Siams':
+        model = KANO_Siams(args, 
+                        classification=True, multiclass=False,
+                        multitask=False, prompt=True).to(args.device)
+    initialize_weights(model)
+
+    if args.checkpoint_path is not None:
+        model.molecule_encoder.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'), strict=False)
+        logger.info('load KANO pretrained model') if args.print else None
+    logger.info(f'model: {model}') if args.print else None
+
+    # Optimizers
+    optimizer = build_optimizer(model, args)
+    logger.info(f'optimizer: {optimizer}') if args.print else None
+
+    # Learning rate schedulers
+    scheduler = build_lr_scheduler(optimizer, args)
+    logger.info(f'scheduler: {scheduler}') if args.print else None
+
+    # Loss function
+    loss_func = CompositeLoss(args, args.loss_func_wt).to(args.device)
+    logger.info(f'loss function: {loss_func}, loss weights: {args.loss_func_wt}') if args.print else None
+
+    args.metric_func = get_metric_func(args)
+    logger.info(f'metric function: {args.metric_func}') if args.print else None
+    
+    if args.mode == 'finetune':
+        model.load_state_dict(torch.load(os.path.join(args.model_path, f'{args.train_model}_best_model.pt'))['state_dict'])
+        logger.info(f'load model from {args.model_path} for finetuning') if args.print else None
+    elif args.mode == 'retrain':
+        pre_file = torch.load(os.path.join(args.model_path, f'{args.train_model}_model.pt'))
+        model.load_state_dict(pre_file['state_dict'])
+        logger.info(f'load model from {args.model_path} for retraining') if args.print else None
+        optimizer.load_state_dict(pre_file['optimizer'])
+        logger.info(f'optimizer: {optimizer}') if args.print else None
+        logger.info(f'load optimizer from {args.model_path} for retraining') if args.print else None
+
+        args.epoch = args.epochs - pre_file['epoch']
+        args.warmup_epochs = 0
+        args.init_lr = optimizer.param_groups[0]['lr']
+        scheduler = build_lr_scheduler(optimizer, args)
+        logger.info(f'scheduler: {scheduler}') if args.print else None
+        logger.info(f'retraining from epoch {pre_file["epoch"]}, {args.epoch} lasting') if args.print else None
+
+    return args, model, optimizer, scheduler, loss_func
+        
+       
 def generate_siamse_smi(data, query_prot_ids, 
                         support_dataset, support_prot,
                         strategy='random', num=1):
