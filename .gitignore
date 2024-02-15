@@ -5,7 +5,7 @@
 *.ipynb
 *.pkl
 *.sbatch
-*.sh
+# *.sh
 *.out
 *.csv
 *.sbatch
