@@ -149,14 +149,10 @@ class CMPNEncoder(nn.Module):
             cur_hiddens = atom_hiddens.narrow(0, a_start, a_size)
             mol_vecs.append(cur_hiddens.mean(0))
             
-            if atom_output:
-                atom_vecs.append(cur_hiddens)
-                
-        if atom_output:
-            return atom_vecs
+            atom_vecs.append(cur_hiddens)
                 
         mol_vecs = torch.stack(mol_vecs, dim=0)
-        return mol_vecs  # B x H
+        return mol_vecs, atom_vecs
 
 
 class BatchGRU(nn.Module):
@@ -214,12 +210,11 @@ class CMPN(nn.Module):
         # self.bond_fdim = BOND_FDIM or get_bond_fdim(args) + \
         #                     (not args.atom_messages) * self.atom_fdim # * 2
         self.graph_input = graph_input
-        self.atom_output = args.atom_output
         self.encoder = CMPNEncoder(self.args, self.atom_fdim, self.bond_fdim)
 
     def forward(self, step, prompt: bool, batch,
                 features_batch: List[np.ndarray] = None) -> torch.FloatTensor:
         if not self.graph_input:  # if features only, batch won't even be used
             batch = mol2graph(batch, self.args, prompt)
-        output = self.encoder.forward(step, batch, features_batch, atom_output=self.atom_output)
-        return output
+        mol, atom = self.encoder.forward(step, batch, features_batch)
+        return mol, atom

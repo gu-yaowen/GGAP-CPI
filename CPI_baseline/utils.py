@@ -57,6 +57,7 @@ class TestbedDataset(InMemoryDataset):
         assert (len(xd) == len(xt) and len(xt) == len(y)), "The three lists must be the same length!"
         data_list = []
         data_len = len(xd)
+        error_smi = []
         for i in range(data_len):
             if i % 1000 == 0:
                 print('Converting SMILES to graph: {}/{}'.format(i+1, data_len))
@@ -76,6 +77,7 @@ class TestbedDataset(InMemoryDataset):
                 data_list.append(GCNData)
             except:
                 print(f'Error smiles {smiles}, skip it!')
+                error_smi.append(smiles)
                 continue
 
         if self.pre_filter is not None:
@@ -87,6 +89,7 @@ class TestbedDataset(InMemoryDataset):
         data, slices = self.collate(data_list)
         # save preprocessed data:
         torch.save((data, slices), self.processed_paths[0])
+        self.error_smi = error_smi
 
 def rmse(y,f):
     rmse = sqrt(((y - f)**2).mean(axis=0))

@@ -7,8 +7,21 @@ from chemprop.data import MoleculeDataset
 from chemprop.nn_utils import NoamLR
 from chemprop.train.evaluate import evaluate_predictions
 from torch_geometric.data import Batch
+from torch.optim.lr_scheduler import ExponentialLR
 
 from model.utils import generate_siamse_smi
+
+
+def retrain_scheduler(args, data, optimizer, scheduler, n_iter):
+    query_smiles, query_labels = data
+    iter_size = args.batch_size
+    for epoch in range(args.start_epoch):
+        for i in tqdm(range(0, len(query_smiles), iter_size)):
+            if isinstance(scheduler, NoamLR):
+                scheduler.step()
+        if isinstance(scheduler, ExponentialLR):
+            scheduler.step()
+    return scheduler
 
 
 def predict_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, scaler, strategy='random'):
@@ -70,9 +83,9 @@ def predict_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, sca
         pred = np.array(pred).reshape(-1, 1)
         label = np.array(query_labels.cpu().numpy()).reshape(-1, 1)
     else:
-        unique_num = len(set(query_smiles))
-        pred = np.array(pred).reshape(unique_num, -1).mean(axis=1, keepdims=True)
-        label = np.array(query_labels.cpu().numpy()).reshape(unique_num, -1).mean(axis=1, keepdims=True)
+        num_data = int(len(query_smiles) / args.siams_num) 
+        pred = np.array(pred).reshape(num_data, -1).mean(axis=1, keepdims=True)
+        label = np.array(query_labels.cpu().numpy()).reshape(num_data, -1).mean(axis=1, keepdims=True)
     if scaler:
         label = scaler.inverse_transform(label)
     return pred.tolist(), label.tolist()
@@ -111,6 +124,7 @@ def train_epoch(args, model, prot_graph_dict, data, data_prot, siams_data,
     iter_size = args.batch_size
     loss_collect = {'Total': 0, 'MSE': 0, 'CLS': 0, 'CL': 0}
 
+    # catch up the scheduler to the current iteration
     for i in tqdm(range(0, len(query_smiles), iter_size)):
         if i + iter_size > len(query_smiles):
             break
@@ -188,10 +202,10 @@ def evaluate_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, sc
     data_idx = data_idx[:3000]
     data = [data[0][data_idx], data[1][data_idx]]
     data_prot = data_prot[data_idx]
+    if args.train_model != 'KANO_Prot':
+        siams_data = [siams_data[0][data_idx], siams_data[1][data_idx]]
 
     pred, label = predict_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, scaler, strategy)
-    # print(pred[:10])
-    # print(label[:10])
     results = evaluate_predictions(pred, label, args.num_tasks,
                                    args.metric_func, args.dataset_type)
 

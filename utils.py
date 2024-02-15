@@ -12,6 +12,7 @@ from argparse import Namespace
 from warnings import simplefilter
 from chemprop.data import StandardScaler
 from chembl_webresource_client.new_client import new_client
+from MoleculeACE.benchmark.cliffs import ActivityCliffs
 
 
 def define_logging(args, logger):
@@ -61,14 +62,24 @@ def set_up(args):
 
 
 def set_save_path(args):
-    if args.mode == 'baseline_CPI':
+    args.save_path = os.path.join('exp_results', args.train_model, 
+                                    args.data_name, str(args.seed))
+    if args.mode in ['train', 'retrain']:
+        args.save_model_path = os.path.join(args.save_path, f'{args.train_model}_model.pt')
+        args.save_best_model_path = os.path.join(args.save_path, f'{args.train_model}_best_model.pt')
+        args.save_pred_path = os.path.join(args.save_path, f'{args.train_model}_test_pred.csv')
+        args.save_metric_path = os.path.join(args.save_path, f'{args.baseline_model}_metrics.pkl')
+    elif args.mode in ['finetune']:
+        args.save_model_path = os.path.join(args.save_path, f'{args.train_model}_model_ft.pt')
+        args.save_best_model_path = os.path.join(args.save_path, f'{args.train_model}_best_model_ft.pt')
+        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred_ft.csv')
+        args.save_metric_path = os.path.join(args.save_path, f'{args.baseline_model}_metrics_ft.pkl')
+    elif args.mode in ['inference']:
+        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred_infer.csv')
+    elif args.mode in ['baseline_CPI', 'baselin_QSAR']:
         args.save_path = os.path.join('exp_results', args.baseline_model, 
                                       args.data_name, str(args.seed))
-    elif args.train_model in ['KANO_Prot', 'KANO_Prot_Siams']:
-        args.save_path = os.path.join('exp_results', args.train_model, 
-                                      args.data_name, str(args.seed))
-    else:
-        args.save_path = os.path.join('exp_results', args.data_name, str(args.seed))
+        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv')
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     return args
@@ -217,3 +228,52 @@ def save_checkpoint(path: str,
         
     }
     torch.save(state, path)
+
+
+# def calc_cliff_metrics(y_test_pred: Union[List[float], np.array], y_test: Union[List[float], np.array],
+#                     cliff_mols_test: List[int] = None, smiles_test: List[str] = None,
+#                     y_train: Union[List[float], np.array] = None, smiles_train: List[str] = None,
+#                     metrics = 'RMSE', **kwargs):
+#     """ Calculate the RMSE of activity cliff compounds
+
+#     :param y_test_pred: (lst/array) predicted test values
+#     :param y_test: (lst/array) true test values
+#     :param cliff_mols_test: (lst) binary list denoting if a molecule is an activity cliff compound
+#     :param smiles_test: (lst) list of SMILES strings of the test molecules
+#     :param y_train: (lst/array) train labels
+#     :param smiles_train: (lst) list of SMILES strings of the train molecules
+#     :param kwargs: arguments for ActivityCliffs()
+#     :return: float RMSE on activity cliff compounds
+#     """
+
+#     # Check if we can compute activity cliffs when pre-computed ones are not provided.
+#     if cliff_mols_test is None:
+#         if smiles_test is None or y_train is None or smiles_train is None:
+#             raise ValueError('if cliff_mols_test is None, smiles_test, y_train, and smiles_train should be provided '
+#                              'to compute activity cliffs')
+
+#     # Convert to numpy array if it is none
+#     y_test_pred = np.array(y_test_pred) if type(y_test_pred) is not np.array else y_test_pred
+#     y_test = np.array(y_test) if type(y_test) is not np.array else y_test
+
+#     if cliff_mols_test is None:
+#         y_train = np.array(y_train) if type(y_train) is not np.array else y_train
+#         # Calculate cliffs and
+#         cliffs = ActivityCliffs(smiles_train + smiles_test, np.append(y_train, y_test))
+#         cliff_mols = cliffs.get_cliff_molecules(return_smiles=False, **kwargs)
+#         # Take only the test cliffs
+#         cliff_mols_test = cliff_mols[len(smiles_train):]
+
+#     # Get the index of the activity cliff molecules
+#     cliff_test_idx = [i for i, cliff in enumerate(cliff_mols_test) if cliff == 1]
+
+#     # Filter out only the predicted and true values of the activity cliff molecules
+#     y_pred_cliff_mols = y_test_pred[cliff_test_idx]
+#     y_test_cliff_mols = y_test[cliff_test_idx]
+
+#     if metric == 'RMSE':
+#         return calc_rmse(y_pred_cliff_mols, y_test_cliff_mols)
+#     elif metric == 'R2':
+#         return calc_r2(y_pred_cliff_mols, y_test_cliff_mols)
+#     elif metric == 'PCC':
+#         return calc_pcc(y_pred_cliff_mols, y_test_cliff_mols)

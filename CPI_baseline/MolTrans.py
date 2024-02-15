@@ -37,7 +37,7 @@ class MolTrans():
 
         self.LR = 1e-4
         self.NUM_EPOCHS = 13
-        self.LOG_INTERVAL = 1000
+        self.LOG_INTERVAL = 10
         logger.info("Batch size %d, Learning rate %f, Num epochs %d" %
                     (config['batch_size'], self.LR, self.NUM_EPOCHS))
         
@@ -374,7 +374,7 @@ class Encoder_MultipleLayers(nn.Module):
         for layer_module in self.layer:
             hidden_states = layer_module(hidden_states, attention_mask)
             #if output_all_encoded_layers:
-            #    all_encoder_layers.append(hidden_states)
+            #    all_encoder_layers.append(hidden_states)S
         #if not output_all_encoded_layers:
         #    all_encoder_layers.append(hidden_states)
         return hidden_states

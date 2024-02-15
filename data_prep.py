@@ -31,10 +31,10 @@ from torch.utils import data
 from torch_geometric.data import DataLoader
 from CPI_baseline.utils import TestbedDataset, MolTrans_Data_Encoder
 
-DATASET = pickle.load(open('data/datasetList.pkl', 'rb'))
+# DATASET = pickle.load(open('data/datasetList.pkl', 'rb'))
 
-MOLECULEACE_DATALIST = DATASET['MOLECULEACE_DATALIST']
-OUR_DATALIST = DATASET['OURS']
+# MOLECULEACE_DATALIST = DATASET['MOLECULEACE_DATALIST']
+# OUR_DATALIST = DATASET['OURS']
     
 
 def process_data_QSAR(args, logger):
@@ -105,7 +105,7 @@ def process_data_CPI(args, logger):
             dataset = OUR_DATALIST
             datadir = 'Ours'
 
-        logger.info(f'Integrating data from {datadir}...')
+        # logger.info(f'Integrating data from {datadir}...')
         for assay_name in dataset:
             df = pd.read_csv(f'data/{datadir}/{assay_name}.csv')
             df[args.smiles_columns] = df[args.smiles_columns].applymap(check_molecule)
@@ -116,7 +116,7 @@ def process_data_CPI(args, logger):
                                     bioactivity=df[args.target_columns].values,
                                     in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
                 df.to_csv(args.data_path, index=False)
-                df['Chembl_id'] = df['UniProt_id']
+                df['Chembl_id'] = df['Uniprot_id']
                 df_data = pd.concat([df_data, df])
                 chembl_list.append(assay_name.split('_')[0])
                 args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
@@ -134,9 +134,9 @@ def process_data_CPI(args, logger):
 
         uni_seq = dict(zip(chembl_uni.values(),
                         [get_protein_sequence(uni_id) for uni_id in chembl_uni.values()]))
-        df_data['UniProt_id'] = df_data['Chembl_id'].map(chembl_uni)
-        df_data['Sequence'] = df_data['UniProt_id'].map(uni_seq)
-        df_data = df_data.dropna(subset=['UniProt_id', 'Sequence'])
+        df_data['Uniprot_id'] = df_data['Chembl_id'].map(chembl_uni)
+        df_data['Sequence'] = df_data['Uniprot_id'].map(uni_seq)
+        df_data = df_data.dropna(subset=['Uniprot_id', 'Sequence'])
         df_data = df_data.reset_index(drop=True)
         if args.print:
             logger.info(f'Saving data to {args.data_path}')
@@ -204,7 +204,6 @@ def process_data_CPI(args, logger):
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
-
         train_graph = {}
         if args.print:
             logger.info('Training set: converting SMILES to graph data...')
@@ -247,9 +246,12 @@ def process_data_CPI(args, logger):
             val_data = []
         test_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_test',
                 xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
+        error_smi = test_data.error_smi
         test_data = DataLoader(test_data, batch_size=512, shuffle=False)
-        
+        df_data = df_data[~df_data['smiles'].isin(error_smi)]
+
     elif args.mode == 'baseline_CPI' and args.baseline_model == 'MolTrans':
+        from torch.utils import data
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
         test_data = df_data.iloc[test_idx].reset_index(drop=True)

@@ -15,8 +15,9 @@ from data_prep import process_data_QSAR, process_data_CPI
 from utils import set_save_path, set_seed, set_collect_metric, \
                   collect_metric_epoch, save_checkpoint, \
                   define_logging, set_up
-from model.train_val import train_epoch, evaluate_epoch, predict_epoch
+from model.train_val import retrain_scheduler, train_epoch, evaluate_epoch, predict_epoch
 from model.utils import generate_siamse_smi, set_up_model
+
 
 def run_QSAR(args):
     args, logger = set_up(args)
@@ -122,26 +123,26 @@ def run_QSAR(args):
         metric_dict = collect_metric_epoch(args, metric_dict, loss_collect, val_scores, test_scores, 
                                            model, epoch, optimizer, scaler, features_scaler, args)
         if epoch < args.epochs - 1:
-            save_checkpoint(os.path.join(args.save_path, f'{args.train_model}_model.pt'), 
+            save_checkpoint(args.save_model_path, 
                             model, scaler, features_scaler, epoch, optimizer, args) 
         if loss_collect['MSE'] < best_loss or epoch == 0:
             best_loss = loss_collect['MSE']
             best_score, best_epoch = list(val_scores.values())[0][-1], epoch
             best_test_score = list(test_scores.values())[0][-1]
-            save_checkpoint(os.path.join(args.save_path, f'{args.train_model}_best_model.pt'), 
+            save_checkpoint(args.save_best_model_path, 
                             model, scaler, features_scaler, epoch, optimizer, args) 
     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
     # test the best model
-    model.load_state_dict(torch.load(os.path.join(args.save_path, f'{args.train_model}_best_model.pt'))['state_dict'])
+    model.load_state_dict(torch.load(args.save_best_model_path)['state_dict'])
     test_pred, _ = predict_epoch(args, model, query_test, test_prot, siams_test, scaler, strategy='full')
 
     # save results
-    pickle.dump(metric_dict, open(os.path.join(args.save_path, f'{args.train_model}_metric_dict.pkl'), 'wb'))
+    pickle.dump(metric_dict, open(args.save_metric_path, 'wb'))
     df['Prediction'] = None
     df.loc[test_idx, 'Prediction'] = test_pred
-    df[df['split']=='test'].to_csv(os.path.join(args.save_path, f'{args.train_model}_test_pred.csv'), index=False)
+    df[df['split']=='test'].to_csv(args.save_pred_path, index=False)
     test_data = df[df['split']=='test']
     rmse, rmse_cliff = calc_rmse(test_data['y'].values, test_data['Prediction'].values), \
                        calc_cliff_rmse(y_test_pred=test_data['Prediction'].values,
@@ -169,9 +170,9 @@ def run_CPI(args):
         val_idx = random.sample(list(train_idx), int(len(df_all) * valid_ratio))
         train_idx = list(set(train_idx) - set(val_idx))
 
-    train_prot, val_prot, test_prot = df_all.loc[train_idx, 'UniProt_id'].values, \
-                                      df_all.loc[val_idx, 'UniProt_id'].values, \
-                                      df_all.loc[test_idx, 'UniProt_id'].values
+    train_prot, val_prot, test_prot = df_all.loc[train_idx, 'Uniprot_id'].values, \
+                                      df_all.loc[val_idx, 'Uniprot_id'].values, \
+                                      df_all.loc[test_idx, 'Uniprot_id'].values
 
     train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
                                             [data[i] for i in val_idx],
@@ -215,18 +216,18 @@ def run_CPI(args):
         logger.info(f'generating siamese pairs...') if args.print else None
         query_train, siams_train = generate_siamse_smi(train_data, train_prot,
                                                     train_data, train_prot,
-                                                    strategy='full', num=args.siams_num)
+                                                    strategy='TopN_Sim', num=args.siams_num)
         if len(val_data) > 0:
             query_val, siams_val = generate_siamse_smi(val_data, val_prot,
                                                     train_data, train_prot,
-                                                    strategy='full', num=args.siams_num)
+                                                    strategy='TopN_Sim', num=args.siams_num)
         else:
-            query_val, siams_val = generate_siamse_smi(train_data, train_prot,
-                                                    train_data, train_prot,
-                                                    strategy='random', num=args.siams_num)       
+            query_val, siams_val = query_train, siams_train
+            val_prot = train_prot     
+
         query_test, siams_test = generate_siamse_smi(test_data, test_prot,
                                                     train_data, train_prot,
-                                                    strategy='full', num=args.siams_num)        
+                                                    strategy='TopN_Sim', num=args.siams_num)        
         logger.info(f'generated siamese data size: train {len(query_train[0])}, '
                     f'val {len(query_val[0])}, test {len(query_test[0])}') if args.print else None
     else:
@@ -245,17 +246,21 @@ def run_CPI(args):
     # load protein features
     if args.train_model in ['KANO_Prot', 'KANO_Prot_Siams']:
         logger.info(f'loading protein features...') if args.print else None
-        prot_list = df_all['UniProt_id'].unique()
+        prot_list = df_all['Uniprot_id'].unique()
         prot_feat = [pickle.load(open(f'data/Protein_pretrained_feat/{prot_id}.pkl', 'rb')) 
                     for prot_id in prot_list]
         prot_feat, prot_graph = [list(d.values())[0][1] for d in prot_feat], \
                                         [list(d.values())[0][-1] for d in prot_feat]
         for i in range(len(prot_graph)):
-            prot_graph[i].x = torch.tensor(prot_feat[i][: prot_graph[i].num_nodes]).to(args.device)
-            if prot_graph[i].x.shape[0] < prot_graph[i].num_nodes:
-                prot_graph[i].x = torch.cat([prot_graph[i].x,
-                                            torch.zeros(prot_graph[i].num_nodes - prot_graph[i].x.shape[0],
-                                                        prot_graph[i].x.shape[1]).to(args.device)])
+            try:
+                prot_graph[i].x = torch.tensor(prot_feat[i][: prot_graph[i].num_nodes]).to(args.device)
+                if prot_graph[i].x.shape[0] < prot_graph[i].num_nodes:
+                    prot_graph[i].x = torch.cat([prot_graph[i].x,
+                                                torch.zeros(prot_graph[i].num_nodes - prot_graph[i].x.shape[0],
+                                                            prot_graph[i].x.shape[1]).to(args.device)])
+            except:
+                print(prot_graph[i])
+
         prot_graph_dict = dict(zip(prot_list, prot_graph))
         del prot_feat, prot_graph
     else:
@@ -264,6 +269,10 @@ def run_CPI(args):
     # training
     logger.info(f'training...') if args.print else None
     best_loss = 999
+    if args.mode == 'retrain':
+        logger.info(f'retraining...') if args.print else None
+        scheduler = retrain_scheduler(args, query_train, optimizer, scheduler, n_iter)
+
     for epoch in range(args.epochs):
         n_iter, loss_collect = train_epoch(args, model, prot_graph_dict, query_train, train_prot, siams_train, 
                                            loss_func, optimizer, scheduler, n_iter)
@@ -287,23 +296,23 @@ def run_CPI(args):
         metric_dict = collect_metric_epoch(args, metric_dict, loss_collect, val_scores, test_scores)
         
         if epoch < args.epochs - 1:
-            save_checkpoint(os.path.join(args.save_path, f'{args.train_model}_model.pt'), 
+            save_checkpoint(args.save_model_path, 
                             model, scaler, features_scaler, epoch, optimizer, args)
         if loss_collect['MSE'] < best_loss or epoch == 0:
             best_loss = loss_collect['MSE']
             best_score, best_epoch = list(val_scores.values())[0][-1], epoch
             best_test_score = list(test_scores.values())[0][-1]
-            save_checkpoint(os.path.join(args.save_path, f'{args.train_model}_best_model.pt'), 
+            save_checkpoint(args.save_best_model_path, 
                             model, scaler, features_scaler, epoch, optimizer, args) 
     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
     # test the best model
-    model.load_state_dict(torch.load(os.path.join(args.save_path, f'{args.train_model}_best_model.pt'))['state_dict'])
+    model.load_state_dict(torch.load(args.save_best_model_path)['state_dict'])
     test_pred, _ = predict_epoch(args, model, prot_graph_dict, query_test, test_prot, siams_test, scaler, strategy='full')
 
     # save results
-    pickle.dump(metric_dict, open(os.path.join(args.save_path, f'{args.train_model}_metric_dict.pkl'), 'wb'))
+    pickle.dump(metric_dict, open(args.save_metric_path, 'wb'))
 
     test_data_all = df_all[df_all['split']=='test']
 
@@ -311,11 +320,11 @@ def run_CPI(args):
         test_data_all['Chembl_id'] = test_data_all['Chembl_id'].values
         task = test_data_all['Chembl_id'].unique()
     else:
-        task = test_data_all['UniProt_id'].unique()
+        task = test_data_all['Uniprot_id'].unique()
     
     test_data_all['Prediction'] = np.array(test_pred).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
     test_data_all = test_data_all.rename(columns={'Label': 'y'})
-    test_data_all.to_csv(os.path.join(args.save_path, f'{args.data_name}_test_pred.csv'), index=False)
+    test_data_all.to_csv(args.save_pred_path, index=False)
     rmse = calc_rmse(test_data_all['y'].values, test_data_all['Prediction'].values)
     rmse_cliff = calc_cliff_rmse(y_test_pred=test_data_all['Prediction'].values,
                                  y_test=test_data_all['y'].values,
@@ -324,7 +333,7 @@ def run_CPI(args):
     #     if 'Chembl_id' in test_data_all.columns:
     #         test_data_target = test_data_all[test_data_all['Chembl_id']==target]
     #     else:
-    #         test_data_target = test_data_all[test_data_all['UniProt_id']==target]
+    #         test_data_target = test_data_all[test_data_all['Uniprot_id']==target]
     #     rmse.append(calc_rmse(test_data_target['y'].values, test_data_target['Prediction'].values))
     #     rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'].values,
     #                                       y_test=test_data_target['y'].values,
@@ -391,7 +400,7 @@ def run_baseline_QSAR(args):
     rmse_cliff = calc_cliff_rmse(y_test_pred=df_test['Prediction'].values,
                                  y_test=df_test['y'].values,
                                  cliff_mols_test=df_test['cliff_mol'].values)
-    df_test.to_csv(os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv'), index=False)
+    df_test.to_csv(args.save_pred_path, index=False)
     logger.info(f'Prediction saved, RMSE: {rmse:.4f}, RMSE_cliff: {rmse_cliff:.4f}') if args.print else None
     logger.handlers.clear()
     return
@@ -430,7 +439,7 @@ def run_baseline_CPI(args):
             model.train(train=train_data, val=None, test=test_data)
         # get predictions
         test_pred = model.predict(test_data)
-        model.save_model(os.path.join(args.save_path,f'{args.baseline_model}')) 
+        model.save_model(args.save_path) 
 
     elif args.baseline_model == 'GraphDTA':
         from CPI_baseline.GraphDTA import GraphDTA
@@ -448,7 +457,7 @@ def run_baseline_CPI(args):
     elif args.baseline_model == 'MolTrans':
         from CPI_baseline.MolTrans import MolTrans
         from CPI_baseline.utils import MolTrans_config_DBPE
-        
+
         config = MolTrans_config_DBPE()
         model = MolTrans(args, logger, config)
         logger.info(f'load {args.baseline_model} model') if args.print else None
@@ -466,24 +475,17 @@ def run_baseline_CPI(args):
         test_data_all['Chembl_id'] = test_data_all['Chembl_id'].values
         task = test_data_all['Chembl_id'].unique()
     else:
-        task = test_data_all['UniProt_id'].unique()
+        task = test_data_all['Uniprot_id'].unique()
 
-    test_data_all['Prediction'] = test_pred[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+    test_data_all['Prediction'] = test_pred[:len(test_data_all)] # some baselines may have padding, delete the exceeds
     test_data_all = test_data_all.rename(columns={'Label': 'y'})
-    test_data_all.to_csv(os.path.join(args.save_path, f'{args.data_name}_test_pred.csv'), index=False)
-    rmse, rmse_cliff = [], []
-
-    for target in task:
-        if 'Chembl_id' in test_data_all.columns:
-            test_data_target = test_data_all[test_data_all['Chembl_id']==target]
-        else:
-            test_data_target = test_data_all[test_data_all['UniProt_id']==target]
-        rmse.append(calc_rmse(test_data_target['y'].values, test_data_target['Prediction'].values))
-        rmse_cliff.append(calc_cliff_rmse(y_test_pred=test_data_target['Prediction'].values,
-                                          y_test=test_data_target['y'].values,
-                                        cliff_mols_test=test_data_target['cliff_mol'].values))
-    logger.info(f'Prediction saved, RMSE: {np.mean(rmse):.4f}±{np.std(rmse):.4f}, '
-                    f'RMSE_cliff: {np.mean(rmse_cliff):.4f}±{np.std(rmse_cliff):.4f}') if args.print else None
+    test_data_all.to_csv(args.save_pred_path, index=False)
+    rmse = calc_rmse(test_data_all['y'].values, test_data_all['Prediction'].values)
+    rmse_cliff = calc_cliff_rmse(y_test_pred=test_data_all['Prediction'].values,
+                                        y_test=test_data_all['y'].values,
+                                    cliff_mols_test=test_data_all['cliff_mol'].values)
+    logger.info(f'Prediction saved, RMSE: {rmse:.4f}, '
+                    f'RMSE_cliff: {rmse_cliff:.4f}') if args.print else None
     logger.handlers.clear()                     
     return
 

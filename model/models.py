@@ -106,11 +106,11 @@ class KANO_Prot(nn.Module):
         
 
     def forward(self, smiles, batch_prot):
-        mol_feat = self.molecule_encoder.encoder('finetune', False, smiles)
+        mol_feat, atom_feat = self.molecule_encoder.encoder('finetune', False, smiles)
         prot_node_feat, prot_graph_feat = self.protein_encoder(batch_prot)
         # mol_feat = torch.concat([mol_feat, prot_graph_feat], dim=1)
         # mol_attn = None
-        cmb_feat, mol_attn = self.cross_attn_pooling(mol_feat, prot_node_feat)
+        cmb_feat, mol_attn = self.cross_attn_pooling(atom_feat, prot_node_feat)
         mol_feat = torch.concat([mol_feat, prot_graph_feat, cmb_feat], dim=1)
         output = self.molecule_encoder.ffn(mol_feat)
         return [output, None, None, None], [mol_feat, None], prot_graph_feat, [mol_attn, None]
@@ -126,8 +126,8 @@ class KANO_Prot_Siams(nn.Module):
 
         :param classification: Whether the model is a classification model.
         """
-        super(KANO_Siam_Prot, self).__init__()
-        args.atom_output = True
+        super(KANO_Prot_Siams, self).__init__()
+        self.decoder_cls = True if float(args.loss_func_wt['CLS']) > 0 else False
         self.classification = classification
         if self.classification:
             self.sigmoid = nn.Sigmoid()
@@ -140,14 +140,24 @@ class KANO_Prot_Siams(nn.Module):
                                               multiclass=args.dataset_type == 'multiclass',
                                               pretrain=False)
         self.molecule_encoder.create_encoder(args, 'CMPNN')
-        # self.molecule_encoder.create_ffn(args)
-        
+        args.hidden_size = int(args.hidden_size * 3)
+        self.molecule_encoder.create_ffn(args)
+        args.hidden_size = int(args.hidden_size / 3)
+
         self.siams_decoder = MoleculeModel(classification=args.dataset_type == 'classification',
                                                 multiclass=args.dataset_type == 'multiclass',
                                                 pretrain=False)
-        args.hidden_size = int(args.hidden_size * 3)
+        args.hidden_size = int(args.hidden_size * 9)
         self.siams_decoder.create_ffn(args)
-        args.hidden_size = int(args.hidden_size / 3)
+        args.hidden_size = int(args.hidden_size / 9)
+
+        if self.decoder_cls:
+            self.siams_decoder_cls = MoleculeModel(classification=args.dataset_type == 'classification',
+                                                    multiclass=args.dataset_type == 'multiclass',
+                                                    pretrain=False)
+            args.hidden_size = int(args.hidden_size * 9)
+            self.siams_decoder_cls.create_ffn(args)
+            args.hidden_size = int(args.hidden_size / 9)
 
         self.prompt = prompt
         if self.prompt:
@@ -155,20 +165,24 @@ class KANO_Prot_Siams(nn.Module):
 
         
         self.protein_encoder = ProteinEncoder(args)
-        self.cross_attn_pooling = MultiHeadCrossAttentionPooling(300, args.num_heads, pooling=args.pooling)
+        self.cross_attn_pooling = MultiHeadCrossAttentionPooling(300, args.num_heads)
 
 
     def forward(self, smiles_1, smiles_2, batch_prot):
-        mol1 = self.molecule_encoder.encoder('finetune', self.prompt, smiles_1)
-        mol2 = self.molecule_encoder.encoder('finetune', self.prompt, smiles_2)
+        mol_feat1, atom_feat1 = self.molecule_encoder.encoder('finetune', self.prompt, smiles_1)
+        mol_feat2, atom_feat2 = self.molecule_encoder.encoder('finetune', self.prompt, smiles_2)
+        prot_node_feat, prot_graph_feat = self.protein_encoder(batch_prot)
 
-        prot_feat = self.protein_encoder(batch_prot)
+        cmb_feat1, mol1_attn = self.cross_attn_pooling(atom_feat1, prot_node_feat)
+        cmb_feat2, mol2_attn = self.cross_attn_pooling(atom_feat2, prot_node_feat)
 
-        mol1_, mol1_attn = self.cross_attn_pooling(mol1, prot_feat)
-        mol2_, mol2_attn = self.cross_attn_pooling(mol2, prot_feat)
+        mol_feat1 = torch.concat([mol_feat1, prot_graph_feat, cmb_feat1], dim=1)
+        mol_feat2 = torch.concat([mol_feat2, prot_graph_feat, cmb_feat2], dim=1)
 
-        # output1 = self.molecule_encoder.ffn(mol1_)
-        siams_mol = torch.cat([mol1_, mol2_, mol1_ - mol2_], dim=-1)
+        output1 = self.molecule_encoder.ffn(mol_feat1)
+        siams_mol = torch.cat([mol_feat1, mol_feat2, mol_feat1 - mol_feat2], dim=-1)
         siams_output = self.siams_decoder.ffn(siams_mol)
-        # output2 = self.molecule_encoder.ffn(mol2_)
-        return siams_output, [mol1, mol1_], [mol2, mol2_], prot_feat, [mol1_attn, mol2_attn]
+        output2 = self.molecule_encoder.ffn(mol_feat2)
+
+        return [output1, output2, siams_output, None], [mol_feat1, cmb_feat1], \
+               [mol_feat2, cmb_feat2], prot_graph_feat, [mol1_attn, mol2_attn]

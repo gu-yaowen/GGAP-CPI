@@ -8,14 +8,16 @@
 *.sh
 *.out
 *.csv
+*.sbatch
 
 # Ignore a specific directory
 data/
+data_/
 exp_results/
 result/
 runs/
 Feature/
-sh_run/
+# sh_run/
 __pycache__/
 
 # Ignore all .txt files in a specific directory

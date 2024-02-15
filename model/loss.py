@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def ContrastiveLoss(anchor, positive, negatives, margin, temperature=1.0):
     positive_distance = F.pairwise_distance(anchor, positive)
 
@@ -23,6 +24,7 @@ def ContrastiveLoss(anchor, positive, negatives, margin, temperature=1.0):
     losses = losses.masked_fill(mask, 0)
 
     return losses.mean()
+
 
 class CompositeLoss(nn.Module):
     def __init__(self, args, loss_func_wt, margin=1.0, temperature=1.0):

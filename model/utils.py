@@ -1,6 +1,9 @@
 import os
 import torch
 import numpy as np
+from tqdm import tqdm
+from rdkit import Chem
+from rdkit.Chem import AllChem
 from graphein.protein.graphs import construct_graph
 from graphein.protein.config import ProteinGraphConfig
 from graphein.ml import GraphFormatConvertor
@@ -60,19 +63,18 @@ def set_up_model(args, logger):
         model.load_state_dict(torch.load(os.path.join(args.model_path, f'{args.train_model}_best_model.pt'))['state_dict'])
         logger.info(f'load model from {args.model_path} for finetuning') if args.print else None
     elif args.mode == 'retrain':
-        pre_file = torch.load(os.path.join(args.model_path, f'{args.train_model}_model.pt'))
+        pre_file = torch.load(args.save_model_path)
         model.load_state_dict(pre_file['state_dict'])
-        logger.info(f'load model from {args.model_path} for retraining') if args.print else None
+        logger.info(f'load model from {args.save_model_path} for retraining') if args.print else None
         optimizer.load_state_dict(pre_file['optimizer'])
         logger.info(f'optimizer: {optimizer}') if args.print else None
-        logger.info(f'load optimizer from {args.model_path} for retraining') if args.print else None
-
-        args.epoch = args.epochs - pre_file['epoch']
-        args.warmup_epochs = 0
-        args.init_lr = optimizer.param_groups[0]['lr']
-        scheduler = build_lr_scheduler(optimizer, args)
-        logger.info(f'scheduler: {scheduler}') if args.print else None
-        logger.info(f'retraining from epoch {pre_file["epoch"]}, {args.epoch} lasting') if args.print else None
+        logger.info(f'load optimizer from {args.save_model_path} for retraining') if args.print else None
+        args.start_epoch = pre_file['epoch']
+        args.epochs = args.epochs - pre_file['epoch']
+        logger.info(f'retrain from epoch {pre_file["epoch"]}, {args.epochs} lasting') if args.print else None
+    elif args.mode == 'inference':
+        model.load_state_dict(torch.load(args.save_best_model_path)['state_dict'])
+        logger.info(f'load model from {args.save_best_model_path} for inference') if args.print else None
 
     return args, model, optimizer, scheduler, loss_func
         
@@ -80,35 +82,48 @@ def set_up_model(args, logger):
 def generate_siamse_smi(data, query_prot_ids, 
                         support_dataset, support_prot,
                         strategy='random', num=1):
-    smiles, labels = data.smiles(), data.targets()
+    query_smiles, query_labels = np.array(data.smiles()).flatten(), np.array(data.targets()).flatten()
     support_smiles, support_labels = np.array(support_dataset.smiles()).flatten(), \
                                      np.array(support_dataset.targets()).flatten()
-    # repeat
-    if strategy == 'random':
-        smiles_rep = np.repeat(smiles, num)
-        labels_rep = np.repeat(labels, num)
-    elif strategy == 'full':
-        smiles_rep = np.repeat(smiles, len(support_smiles))
-        labels_rep = np.repeat(labels, len(support_smiles))
-    # sampling from support set
-    siam_smiles, siam_labels = [], []
-    for idx, smi in enumerate(smiles):
-        prot_id = query_prot_ids[idx]
-        support_idx = np.where(support_prot == prot_id)[0]
-        if strategy == 'random':
-            siamse_idx = np.random.choice(support_idx, num)
-        elif strategy == 'full':
-            siamse_idx = support_idx
-        siam_smiles.extend([support_smiles[idx] for idx in list(siamse_idx)])
-        siam_labels.extend([support_labels[idx] for idx in list(siamse_idx)])
+    query_prot_ids, support_prot = np.array(query_prot_ids), np.array(support_prot)
 
-    assert len(smiles_rep) == len(siam_smiles)
-    return [np.array(smiles_rep), np.array(labels_rep)], [np.array(siam_smiles), np.array(siam_labels)]
+    uni_prot = np.unique(np.array(query_prot_ids))
+    smiles, label, siam_smiles, siam_label = [], [], [], []
+    for prot in tqdm(uni_prot, desc='Generating siamese pairs'):
+        q_smiles, q_label = query_smiles[np.where(query_prot_ids == prot)[0]],\
+                            query_labels[np.where(query_prot_ids == prot)[0]]
+        s_smiles, s_label = support_smiles[support_prot == prot], support_labels[support_prot == prot]
+        if strategy == 'random':
+            siamse_idx = np.random.choice(len(s_smiles), num*len(s_smiles))
+            smiles.extend(np.repeat(q_smiles, num))
+            label.extend(np.repeat(q_label, num))
+            siam_smiles.extend(s_smiles[siamse_idx])
+            siam_label.extend(s_label[siamse_idx])
+        elif strategy == 'full':
+            smiles.extend(np.repeat(q_smiles, len(s_smiles)))
+            label.extend(np.repeat(q_label, len(s_smiles)))
+            siam_smiles.extend(np.repeat(s_smiles, len(q_smiles)))
+            siam_label.extend(np.repeat(s_label, len(q_smiles)))
+        elif strategy == 'TopN_Sim':
+            if len(query_prot_ids) == len(support_prot):
+                if (query_prot_ids == support_prot).all():
+                    siamse_idx, _ = calculate_topk_similarity(q_smiles, s_smiles, top_k=num+1)
+                    siamse_idx = siamse_idx[:, 1:].flatten()
+            else:
+                siamse_idx, _ = calculate_topk_similarity(q_smiles, s_smiles, top_k=num)
+                siamse_idx = siamse_idx.flatten()
+            smiles.extend(np.repeat(q_smiles, num))
+            label.extend(np.repeat(q_label, num))
+            siam_smiles.extend(s_smiles[siamse_idx])
+            siam_label.extend(s_label[siamse_idx])
+
+    assert len(smiles) == len(siam_smiles)
+    return [np.array(smiles), np.array(label)], [np.array(siam_smiles), np.array(siam_label)]
 
 
 def generate_protein_graph(prot_dict):
     new_edge_funcs = {"edge_construction_functions": [add_peptide_bonds,
-                                                        add_aromatic_interactions,
+                                                        # add_aromatic_interactions,
                                                         add_hydrogen_bond_interactions,
                                                         add_disulfide_interactions,
                                                         add_ionic_interactions,
@@ -134,3 +149,38 @@ def generate_protein_graph(prot_dict):
                 prot_dict[uni_id] = prot_dict[uni_id] + [None]
             pass
     return prot_dict
+
+
+def tanimoto_similarity_matrix(fps1, fps2):
+    fp_matrix1 = np.array(fps1)
+    fp_matrix2 = np.array(fps2)
+    
+    dot_product = np.dot(fp_matrix1, fp_matrix2.T)
+    
+    norm_sq1 = np.sum(fp_matrix1, axis=1)
+    norm_sq2 = np.sum(fp_matrix2, axis=1)
+    tanimoto_sim = dot_product / (norm_sq1[:, None] + norm_sq2[None, :] - dot_product)
+    
+    return tanimoto_sim
+
+
+def calculate_topk_similarity(smiles_list1, smiles_list2, top_k=1):
+    """
+    Calculate the Tanimoto Similarity between SMILES strings based on ECFP4 fingerprints
+    Then, return the indexs with topK similarity
+    """
+    mols1 = [Chem.MolFromSmiles(smile) for smile in smiles_list1]
+    mols2 = [Chem.MolFromSmiles(smile) for smile in smiles_list2]
+    # Calculate ECFP4 fingerprints
+    fps1 = [AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048) for mol in mols1]
+    fps2 = [AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048) for mol in mols2]
+    
+    fps1_np = np.array([np.frombuffer(fp.ToBitString().encode(), 'u1') - ord('0') for fp in fps1])
+    fps2_np = np.array([np.frombuffer(fp.ToBitString().encode(), 'u1') - ord('0') for fp in fps2])
+
+    # Calculate the Tanimoto similarity
+    similarity_matrix = tanimoto_similarity_matrix(fps1, fps2)
+
+    # return indexs with topN similarity
+    topk_indices = np.argsort(-similarity_matrix, axis=1)[:, :top_k]
+    return topk_indices, similarity_matrix
