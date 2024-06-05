@@ -21,71 +21,19 @@ from typing import List
 import pandas as pd
 import numpy as np
 import random
+import torch
 from tqdm import tqdm
 from chemprop.data.utils import get_data, get_task_names
-from utils import check_molecule, chembl_to_uniprot, get_protein_sequence
+from utils import check_molecule, chembl_to_uniprot, get_protein_sequence, \
+                  get_molecule_feature, get_protein_feature, generate_onehot_features
 from DeepPurpose.utils import encode_drug, encode_protein
 from rdkit import Chem
+from rdkit.Chem import AllChem
 import networkx as nx
 from torch.utils import data
 from torch_geometric.data import DataLoader
 from CPI_baseline.utils import TestbedDataset, MolTrans_Data_Encoder
-
-# DATASET = pickle.load(open('data/datasetList.pkl', 'rb'))
-
-# MOLECULEACE_DATALIST = DATASET['MOLECULEACE_DATALIST']
-# OUR_DATALIST = DATASET['OURS']
     
-
-def process_data_QSAR(args, logger):
-    # check the validity of SMILES
-    df = pd.read_csv(args.data_path)
-    df[args.smiles_columns] = df[args.smiles_columns].apply(check_molecule)
-    df = df.dropna(subset=args.smiles_columns)
-    df = df.reset_index(drop=True)
-
-    if args.split_sizes:
-        _, valid_ratio, test_ratio = args.split_sizes
-    # get splitting index and calculate the activity cliff based on MoleculeACE
-    # if args.split_type == 'moleculeACE':
-    if 'split' not in df.columns and 'cliff_mol' not in df.columns:
-        df = split_data(df[args.smiles_columns].values.tolist(),
-                        bioactivity=df[args.target_columns].values.tolist(),
-                        in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
-        df.to_csv(args.data_path, index=False)
-        args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
-    else:
-        args.ignore_columns = None
-    pos_num, neg_num = len(df[df['cliff_mol']==1]), len(df[df['cliff_mol']==0])
-
-    if args.print:
-        logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
-
-    # get data from csv file
-    args.task_names = get_task_names(args.data_path, args.smiles_columns,
-                                    args.target_columns, args.ignore_columns)
-    data = get_data(path=args.data_path, 
-                    smiles_columns=args.smiles_columns,
-                    target_columns=args.target_columns,
-                    ignore_columns=args.ignore_columns)
-    
-    # split data by MoleculeACE
-    if args.split_sizes:
-        train_idx, test_idx = df[df['split']=='train'].index, df[df['split']=='test'].index
-        val_idx = random.sample(list(train_idx), int(len(df) * valid_ratio))
-        train_idx = list(set(train_idx) - set(val_idx))
-    train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
-                                        [data[i] for i in val_idx],
-                                        [data[i] for i in test_idx]])
-    train_data, val_data, test_data = MoleculeDataset(train_data), \
-                                    MoleculeDataset(val_data), \
-                                    MoleculeDataset(test_data)
-    if args.print:
-        logger.info(f'total size: {len(data)}, train size: {len(train_data)}, '
-                    f'val size: {len(val_data)}, test size: {len(test_data)}')
-        
-    return df, test_idx, train_data, val_data, test_data
-
 
 def process_data_CPI(args, logger):
     args.smiles_columns = ['smiles']
@@ -143,16 +91,9 @@ def process_data_CPI(args, logger):
         df_data.to_csv(args.data_path, index=False)  
     else:
         df_data = pd.read_csv(args.data_path)
-        # df_data[args.smiles_columns] = df_data[args.smiles_columns].applymap(check_molecule)
-        # df_data = df_data.dropna(subset=args.smiles_columns)
-        # df_data = df_data.reset_index(drop=True)
         args.ignore_columns = None
         if args.print:
             logger.info(f'Loading data from {args.data_path}')
-
-    # chembl_list_2 = df_data['Chembl_id'].unique()
-    # if args.print:
-    #     logger.info('{} are not included in the dataset'.format(set(chembl_list) - set(chembl_list_2)))
 
     X_drug = df_data['smiles'].values
     X_target = df_data['Sequence'].values
@@ -166,7 +107,7 @@ def process_data_CPI(args, logger):
                     f'val size: {len(val_idx)}, test size: {len(test_idx)}')
 
     if args.mode in ['train', 'inference', 'retrain', 'finetune'] \
-        and args.train_model in ['KANO_Prot', 'KANO_Prot_Siams']:
+        and args.train_model in ['KANO_Prot', 'KANO_ESM']:
         # get data from csv file
         args.task_names = get_task_names(args.data_path, args.smiles_columns,
                                         args.target_columns, args.ignore_columns)
@@ -181,13 +122,13 @@ def process_data_CPI(args, logger):
             val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
             train_idx = list(set(train_idx) - set(val_idx))
         train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
-                                            [data[i] for i in val_idx],
+                                            [data[i] for i in val_idx] if len(val_idx) > 0 else [],
                                             [data[i] for i in test_idx]])
         train_data, val_data, test_data = MoleculeDataset(train_data), \
                                         MoleculeDataset(val_data), \
                                         MoleculeDataset(test_data)
 
-    elif args.mode == 'baseline_CPI' and args.baseline_model == 'DeepDTA':
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model == 'DeepDTA':
         df = pd.DataFrame(zip(X_drug, X_target, y))
         df.rename(columns={0:'SMILES', 1: 'Sequence', 2: 'Label'}, inplace=True)
 
@@ -200,7 +141,45 @@ def process_data_CPI(args, logger):
         val_data = val_data.reset_index(drop=True)
         test_data = test_data.reset_index(drop=True)
 
-    elif args.mode == 'baseline_CPI' and args.baseline_model == 'GraphDTA':
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model == 'HyperAttentionDTI':
+        from torch.utils.data import DataLoader
+        from CPI_baseline.HyperAttentionDTI import hyperparameter
+        from CPI_baseline.utils import collate_fn
+
+        train_data = df_data.iloc[train_idx].reset_index(drop=True)
+        train_data['Drug'] = train_data.index
+        val_data = df_data.iloc[val_idx].reset_index(drop=True)
+        val_data['Drug'] = val_data.index
+        test_data = df_data.iloc[test_idx].reset_index(drop=True)
+        test_data['Drug'] = test_data.index
+        train_data = train_data['Drug'].astype(str) + ' ' \
+                    + train_data['Uniprot_id'].astype(str) + ' ' \
+                    + train_data['smiles'].astype(str) + ' ' \
+                    + train_data['Sequence'].astype(str) + ' ' \
+                    + train_data['y'].astype(str)
+        train_data = train_data.values.tolist()
+        val_data = val_data['Drug'].astype(str) + ' ' \
+                    + val_data['Uniprot_id'].astype(str) + ' ' \
+                    + val_data['smiles'].astype(str) + ' ' \
+                    + val_data['Sequence'].astype(str) + ' ' \
+                    + val_data['y'].astype(str)
+        val_data = val_data.values.tolist()
+        test_data = test_data['Drug'].astype(str) + ' ' \
+                    + test_data['Uniprot_id'].astype(str) + ' ' \
+                    + test_data['smiles'].astype(str) + ' ' \
+                    + test_data['Sequence'].astype(str) + ' ' \
+                    + test_data['y'].astype(str)
+        test_data = test_data.values.tolist()
+        hp = hyperparameter()
+        train_data = DataLoader(train_data, batch_size=hp.Batch_size, shuffle=True, collate_fn=collate_fn) \
+                    if len(train_data) > 0 else []
+        val_data = DataLoader(val_data, batch_size=hp.Batch_size, shuffle=False, collate_fn=collate_fn) \
+                    if len(val_data) > 0 else []
+        test_data = DataLoader(test_data, batch_size=hp.Batch_size, shuffle=False, collate_fn=collate_fn) \
+                    if len(test_data) > 0 else []
+
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model == 'GraphDTA':
+        from torch_geometric.data import DataLoader
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
         test_data = df_data.iloc[test_idx].reset_index(drop=True)
@@ -234,23 +213,29 @@ def process_data_CPI(args, logger):
         train_label, val_label, test_label = train_data['y'].values, \
                                              val_data['y'].values, \
                                              test_data['y'].values
-        
-        train_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_train',
-               xd=train_smiles, xt=train_protein, y=train_label, smile_graph=train_graph)
-        train_data = DataLoader(train_data, batch_size=512, shuffle=True)
+        if len (train_data) > 0:
+            train_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_train',
+                xd=train_smiles, xt=train_protein, y=train_label, smile_graph=train_graph)
+            train_data = DataLoader(train_data, batch_size=512, shuffle=True)
+        else:
+            train_data = []
         if len(val_data) > 0:
             val_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_val',
                     xd=val_smiles, xt=val_protein, y=val_label, smile_graph=val_graph)
             val_data = DataLoader(val_data, batch_size=512, shuffle=False)
         else:
             val_data = []
-        test_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_test',
-                xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
-        error_smi = test_data.error_smi
-        test_data = DataLoader(test_data, batch_size=512, shuffle=False)
-        df_data = df_data[~df_data['smiles'].isin(error_smi)]
+        if len(test_data) > 0:
+            print(len(test_data))
+            test_data = TestbedDataset(root=args.save_path, dataset=args.data_name+'_test',
+                        xd=test_smiles, xt=test_protein, y=test_label, smile_graph=test_graph)
+            # error_smi = test_data.error_smi
+            test_data = DataLoader(test_data, batch_size=512, shuffle=False)
+            # df_data = df_data[~df_data['smiles'].isin(error_smi)]
+        else:
+            test_data = []
 
-    elif args.mode == 'baseline_CPI' and args.baseline_model == 'MolTrans':
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model == 'MolTrans':
         from torch.utils import data
         train_data = df_data.iloc[train_idx].reset_index(drop=True)
         val_data = df_data.iloc[val_idx].reset_index(drop=True)
@@ -268,7 +253,149 @@ def process_data_CPI(args, logger):
                                          test_data['y'].values, test_data)
         test_data = data.DataLoader(test_data, batch_size=64, shuffle=False, drop_last=False)
 
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model in ['ECFP_ESM_GBM', 'ECFP_ESM_RF']:
+        train_data = df_data.iloc[train_idx].reset_index(drop=True)
+        val_data = df_data.iloc[val_idx].reset_index(drop=True)
+        test_data = df_data.iloc[test_idx].reset_index(drop=True)
+        train_data = train_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        val_data = val_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        test_data = test_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        # calculate ECFP4 fingerprints
+        train_mol, val_mol, test_mol = [Chem.MolFromSmiles(smi) for smi in train_data['smiles'].values], \
+                                        [Chem.MolFromSmiles(smi) for smi in val_data['smiles'].values], \
+                                        [Chem.MolFromSmiles(smi) for smi in test_data['smiles'].values]
+        train_mol, val_mol, test_mol = [AllChem.GetMorganFingerprintAsBitVect(m, radius=2, nBits=2048) for m in train_mol], \
+                                             [AllChem.GetMorganFingerprintAsBitVect(m, radius=2, nBits=2048) for m in val_mol], \
+                                             [AllChem.GetMorganFingerprintAsBitVect(m, radius=2, nBits=2048) for m in test_mol]
+        prot_graph = get_protein_feature(args, logger, df_data)
+        train_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in train_data['Uniprot_id'].values]
+        val_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in val_data['Uniprot_id'].values]
+        test_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in test_data['Uniprot_id'].values]
+        
+        # concatenate ECFP4 and protein features
+        if len(train_data) > 0:
+            train_feat = np.concatenate([np.array(train_mol), np.array(train_prot)], axis=1)
+            train_data = [train_data['y'].values, train_feat]
+        else:
+            train_feat = []
+        if len(val_data) > 0:
+            val_feat = np.concatenate([np.array(val_mol), np.array(val_prot)], axis=1)
+            val_data = [val_data['y'].values, val_feat]
+        else:
+            val_feat = []
+        if len(test_data) > 0:
+            test_feat = np.concatenate([np.array(test_mol), np.array(test_prot)], axis=1)
+            test_data = [test_data['y'].values, test_feat]
+        else:
+            test_feat = []
+
+    elif args.mode in ['baseline_CPI', 'baseline_inference'] and args.baseline_model in ['KANO_ESM_GBM', 'KANO_ESM_RF']:
+        train_data = df_data.iloc[train_idx].reset_index(drop=True)
+        val_data = df_data.iloc[val_idx].reset_index(drop=True)
+        test_data = df_data.iloc[test_idx].reset_index(drop=True)
+        train_data = train_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        val_data = val_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        test_data = test_data[['smiles', 'Uniprot_id', 'y', 'Sequence']]
+        if not os.path.exists(os.path.join(args.save_path, 'train_mol.pkl' \
+                                        if args.mode != 'baseline_inference' else 'train_mol_infer.pkl')):
+            train_mol = get_molecule_feature(args, logger, train_data['smiles'].values)
+            pickle.dump(train_mol, open(os.path.join(args.save_path, 'train_mol.pkl'\
+                                        if args.mode != 'baseline_inference' else 'train_mol_infer.pkl'), 'wb'))
+        else:
+            train_mol = pickle.load(open(os.path.join(args.save_path, f'{args.data_name}_train_mol.pkl' \
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_train_mol_infer.pkl'), 'rb'))
+        if not os.path.exists(os.path.join(args.save_path, f'{args.data_name}_val_mol.pkl' \
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_val_mol_infer.pkl')):
+            val_mol = get_molecule_feature(args, logger, val_data['smiles'].values)
+            pickle.dump(val_mol, open(os.path.join(args.save_path, f'{args.data_name}_val_mol.pkl' \
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_val_mol_infer.pkl'), 'wb'))
+        else:
+            val_mol = pickle.load(open(os.path.join(args.save_path, f'{args.data_name}_val_mol.pkl'\
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_val_mol_infer.pkl'), 'rb'))
+        if not os.path.exists(os.path.join(args.save_path, f'{args.data_name}_test_mol.pkl'\
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_test_mol_infer.pkl')):
+            test_mol = get_molecule_feature(args, logger, test_data['smiles'].values)
+            pickle.dump(test_mol, open(os.path.join(args.save_path, f'{args.data_name}_test_mol.pkl'\
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_test_mol_infer.pkl'), 'wb'))
+        else:
+            test_mol = pickle.load(open(os.path.join(args.save_path, f'{args.data_name}_test_mol.pkl'\
+                                        if args.mode != 'baseline_inference' else f'{args.data_name}_test_mol_infer.pkl'), 'rb'))
+        prot_graph = get_protein_feature(args, logger, df_data)
+        train_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in train_data['Uniprot_id'].values]
+        val_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in val_data['Uniprot_id'].values]
+        test_prot = [torch.mean(prot_graph[idx].x, dim=0).cpu().numpy()
+                        for idx in test_data['Uniprot_id'].values]
+            
+        if len(train_data) > 0:
+            train_feat = np.concatenate([np.array(train_mol), np.array(train_prot)], axis=1)
+            train_data = [train_data['y'].values, train_feat]
+        else:
+            train_feat = []
+        if len(val_data) > 0:
+            val_feat = np.concatenate([np.array(val_mol), np.array(val_prot)], axis=1)
+            val_data = [val_data['y'].values, val_feat]
+        else:
+            val_feat = []
+        if len(test_data) > 0:
+            test_feat = np.concatenate([np.array(test_mol), np.array(test_prot)], axis=1)
+            test_data = [test_data['y'].values, test_feat]
+        else:
+            test_feat = []
     return df_data, test_idx, train_data, val_data, test_data
+
+
+def process_data_QSAR(args, logger):
+    # check the validity of SMILES
+    df = pd.read_csv(args.data_path)
+    df[args.smiles_columns] = df[args.smiles_columns].apply(check_molecule)
+    df = df.dropna(subset=args.smiles_columns)
+    df = df.reset_index(drop=True)
+
+    if args.split_sizes:
+        _, valid_ratio, test_ratio = args.split_sizes
+    # get splitting index and calculate the activity cliff based on MoleculeACE
+    if 'split' not in df.columns and 'cliff_mol' not in df.columns:
+        df = split_data(df[args.smiles_columns].values.tolist(),
+                        bioactivity=df[args.target_columns].values.tolist(),
+                        in_log10=True, similarity=0.9, test_size=test_ratio, random_state=args.seed)
+        df.to_csv(args.data_path, index=False)
+        args.ignore_columns = ['exp_mean [nM]', 'split', 'cliff_mol']
+    else:
+        args.ignore_columns = None
+    pos_num, neg_num = len(df[df['cliff_mol']==1]), len(df[df['cliff_mol']==0])
+
+    if args.print:
+        logger.info(f'ACs: {pos_num}, non-ACs: {neg_num}')
+
+    # get data from csv file
+    args.task_names = get_task_names(args.data_path, args.smiles_columns,
+                                    args.target_columns, args.ignore_columns)
+    data = get_data(path=args.data_path, 
+                    smiles_columns=args.smiles_columns,
+                    target_columns=args.target_columns,
+                    ignore_columns=args.ignore_columns)
+    
+    # split data by MoleculeACE
+    if args.split_sizes:
+        train_idx, test_idx = df[df['split']=='train'].index, df[df['split']=='test'].index
+        val_idx = random.sample(list(train_idx), int(len(df) * valid_ratio))
+        train_idx = list(set(train_idx) - set(val_idx))
+    train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
+                                        [data[i] for i in val_idx],
+                                        [data[i] for i in test_idx]])
+    train_data, val_data, test_data = MoleculeDataset(train_data), \
+                                    MoleculeDataset(val_data), \
+                                    MoleculeDataset(test_data)
+    if args.print:
+        logger.info(f'total size: {len(data)}, train size: {len(train_data)}, '
+                    f'val size: {len(val_data)}, test size: {len(test_data)}')
+        
+    return df, test_idx, train_data, val_data, test_data
 
 
 def split_data(smiles: List[str], bioactivity: List[float], n_clusters: int = 5,

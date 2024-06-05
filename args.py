@@ -10,21 +10,22 @@ def add_args():
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # general arguments
-    parser.add_argument('--gpu', type=int,
+    parser.add_argument('--gpu', type=int, default=1,
                         # choices=list(range(torch.cuda.device_count())),
                         help='Which GPU to use')
     parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='Turn off cuda')
     parser.add_argument('--mode', type=str, default='train',
-                        choices=['train', 'inference', 'retrain', 'finetune', 'baseline_QSAR', 'baseline_CPI'],
+                        choices=['train', 'inference', 'retrain', 'finetune',
+                                 'baseline_QSAR', 'baseline_CPI', 'baseline_inference'],
                         help='Mode to run script in')
     parser.add_argument('--print', action='store_true', default=False,
                         help='Print log')
     parser.add_argument('--data_path', type=str,
                         help='Path to CSV file containing training data',
                         default=None)
-    parser.add_argument('--test_path', type=str,
-                        help='Path to CSV file containing testing data for which predictions will be made',
+    parser.add_argument('--ref_path', type=str,
+                        help='Path to CSV file containing refence data for scaling in inference mode',
                         default=None)
     parser.add_argument('--model_path', type=str, default=None,
                         help='Path to model checkpoint (.pt file) for inference, retrain, or finetune')
@@ -65,7 +66,7 @@ def add_args():
                         'Set 0 to ignore the specific loss function')
     parser.add_argument('--siams_num', type=int, default=1, 
                         help='Number of siamese pairs')
-    parser.add_argument('--batch_size', type=int, default=256,
+    parser.add_argument('--batch_size', type=int, default=512,
                         help='Batch size')
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of epochs')
@@ -78,17 +79,22 @@ def add_args():
     parser.add_argument('--metric', type=str, default='rmse',
                         choices=['auc', 'prc-auc', 'rmse', 'mae', 'r2', 'accuracy', 'cross_entropy'],
                         help='Metric to optimize during training')
-    
     # model arguments
     # you may not able to change most of these arguments if you use a pretrained model
-    parser.add_argument('--train_model', type=str, default='KANO_Prot_Siams', 
-                        choices=['KANO_Prot_Siams', 'KANO_Prot', 'KANO_Siams'], 
-                        help='KANO_Prot_Siams and KANO_Prot for CPI-type model, KANO_Siams for QSAR-type model')
+    parser.add_argument('--train_model', type=str, default='KANO_Prot', 
+                        choices=['KANO_Prot', 'KANO_ESM'], 
+                        help='KANO_Prot for CPI-type model, KANO_ESM as a baseline model')
+    parser.add_argument('--ablation', type=str, default='none', 
+                        choices=['none', 'KANO', 'GCN', 'Attn', 'ESM'], 
+                        help='Ablation study for KANO_Prot model')
     parser.add_argument('--baseline_model', type=str, default=None,
                         choices=['MLP', 'SVM', 'RF', 'GBM', 'KNN',
                                  'GAT', 'GCN', 'AFP', 'MPNN', 'CNN',
                                  'Transformer','LSTM', 'KANO',
-                                 'DeepDTA', 'GraphDTA', 'MolTrans'],
+                                 'DeepDTA', 'GraphDTA', 'MolTrans',
+                                 'HyperAttentionDTI', 'PerceiverCPI',
+                                 'ECFP_ESM_GBM', 'ECFP_ESM_RF', 
+                                 'KANO_ESM_GBM', 'KANO_ESM_RF'],
                         help='Type of baseline model to train if select mode as baseline_QSAR or baseline_CPI')
     parser.add_argument('--hidden_size', type=int, default=300)
     parser.add_argument('--ffn_hidden_size', type=int, default=300)
@@ -104,6 +110,7 @@ def add_args():
     # add and modify some args
     if '.csv' not in args.data_path:
         args.data_path += '.csv'
+    args.endpoint_type = args.data_path.split('/')[1]
     args.data_name = args.data_path.split('/')[-1].split('.')[0]
     if not args.no_cuda and torch.cuda.is_available():
         args.cuda = True

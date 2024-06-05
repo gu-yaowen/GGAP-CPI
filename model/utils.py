@@ -18,32 +18,35 @@ from graphein.protein.edges.distance import (add_peptide_bonds,
 from chemprop.nn_utils import initialize_weights
 
 from utils import get_metric_func
-from model.models import KANO_Prot, KANO_Prot_Siams, KANO_Siams
+from model.models import KANO_Prot, KANO_ESM, KANO_Prot_ablation
 from model.loss import CompositeLoss
+from KANO_model.model import add_functional_prompt
 from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func
 
 
 def set_up_model(args, logger):
-    assert args.mode in ['train', 'retrain', 'finetune', 'inference']
-    if args.train_model == 'KANO_Prot_Siams':
-        model = KANO_Prot_Siams(args,
-                        classification=True, multiclass=False,
-                        multitask=False, prompt=True).to(args.device)
-    elif args.train_model == 'KANO_Prot':
-        model = KANO_Prot(args,
-                        classification=True, multiclass=False,
-                        multitask=False, prompt=True).to(args.device)
-    elif args.train_model == 'KANO_Siams':
-        model = KANO_Siams(args, 
-                        classification=True, multiclass=False,
-                        multitask=False, prompt=True).to(args.device)
-    initialize_weights(model)
+    assert args.mode in ['train', 'retrain', 'finetune', 'inference', 'baseline_inference']
+    if args.ablation == 'none':
+        if args.train_model == 'KANO_Prot':
+            model = KANO_Prot(args,
+                            classification=True, multiclass=False,
+                            multitask=False, prompt=True).to(args.device)
+        elif args.train_model == 'KANO_ESM':
+            model = KANO_ESM(args, 
+                            classification=True, multiclass=False, 
+                            multitask=False, prompt=True).to(args.device)
+        initialize_weights(model)
+    else:
+        model = KANO_Prot_ablation(args, 
+                                   classification=True, multiclass=False,
+                                   multitask=False, prompt=True).to(args.device)
 
-    if args.checkpoint_path is not None:
+    if args.checkpoint_path is not None and args.ablation in ['none', 'GCN', 'Attn', 'ESM']:
         model.molecule_encoder.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'), strict=False)
         logger.info('load KANO pretrained model') if args.print else None
     logger.info(f'model: {model}') if args.print else None
 
+    args.init_lr = 0.0001
     # Optimizers
     optimizer = build_optimizer(model, args)
     logger.info(f'optimizer: {optimizer}') if args.print else None
@@ -58,24 +61,27 @@ def set_up_model(args, logger):
 
     args.metric_func = get_metric_func(args)
     logger.info(f'metric function: {args.metric_func}') if args.print else None
+    args.previous_epoch = 0
     
     if args.mode == 'finetune':
-        model.load_state_dict(torch.load(os.path.join(args.model_path, f'{args.train_model}_best_model.pt'))['state_dict'])
+        model.load_state_dict(torch.load(os.path.join(args.model_path,
+                                        f'{args.train_model}_best_model.pt'), map_location='cpu')['state_dict'])
         logger.info(f'load model from {args.model_path} for finetuning') if args.print else None
     elif args.mode == 'retrain':
-        pre_file = torch.load(args.save_model_path)
+        pre_file = torch.load(args.save_model_path, map_location='cpu')
         model.load_state_dict(pre_file['state_dict'])
         logger.info(f'load model from {args.save_model_path} for retraining') if args.print else None
         optimizer.load_state_dict(pre_file['optimizer'])
         logger.info(f'optimizer: {optimizer}') if args.print else None
         logger.info(f'load optimizer from {args.save_model_path} for retraining') if args.print else None
-        args.start_epoch = pre_file['epoch']
-        args.epochs = args.epochs - pre_file['epoch']
-        logger.info(f'retrain from epoch {pre_file["epoch"]}, {args.epochs} lasting') if args.print else None
-    elif args.mode == 'inference':
-        model.load_state_dict(torch.load(args.save_best_model_path)['state_dict'])
+        args.previous_epoch = pre_file['epoch']
+        logger.info(f'retrain from epoch {args.previous_epoch}, { args.epochs - args.previous_epoch} lasting') if args.print else None
+    elif args.mode in ['inference', 'baseline_infernce']:
+        model.cpu()
+        model.load_state_dict(torch.load(args.save_best_model_path, map_location='cpu')['state_dict'])
+        model.to(args.device)
         logger.info(f'load model from {args.save_best_model_path} for inference') if args.print else None
-
+    
     return args, model, optimizer, scheduler, loss_func
         
        

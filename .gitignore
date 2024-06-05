@@ -12,11 +12,11 @@
 
 # Ignore a specific directory
 data/
-data_/
 exp_results/
 result/
 runs/
 Feature/
+CPI_baseline/PerceiverCPI/
 # sh_run/
 __pycache__/
 

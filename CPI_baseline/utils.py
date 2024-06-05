@@ -3,12 +3,63 @@ import numpy as np
 import pandas as pd
 from math import sqrt
 from scipy import stats
+from datetime import datetime
 import torch
 from torch.utils import data
+from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import InMemoryDataset
 from torch_geometric import data as DATA
 from subword_nmt.apply_bpe import BPE
 import codecs
+
+
+class EarlyStopping:
+    """Early stops the training if validation loss doesn't improve after a given patience."""
+    def __init__(self, savepath = None, patience=7, verbose=False, delta=0, num_n_fold = 0):
+        """
+        Args:
+            patience (int): How long to wait after last time validation loss improved.
+                            Default: 7
+            verbose (bool): If True, prints a message for each validation loss improvement.
+                            Default: False
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+                            Default: 0
+        """
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
+        self.num_n_fold = num_n_fold
+        self.savepath = savepath
+        self.current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+
+    def __call__(self, val_loss, model, num_epoch):
+
+        score = -val_loss
+
+        if self.best_score is None:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model,num_epoch)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model,num_epoch)
+            self.counter = 0
+
+    def save_checkpoint(self, val_loss, model,num_epoch):
+        '''Saves model when validation loss decrease.'''
+        if self.verbose:
+            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+        # torch.save(model.state_dict(), '.\output\model\checkpoint%d.pt' % num_epoch )
+        torch.save(model.state_dict(), self.savepath + '/valid_best_checkpoint.pth')
+        self.val_loss_min = val_loss
 
 
 class TestbedDataset(InMemoryDataset):
@@ -126,7 +177,7 @@ def ci(y,f):
     ci = S/z
     return ci
 
-
+# used for MolTrans
 class MolTrans_Data_Encoder(data.Dataset):
 
     def __init__(self, list_IDs, labels, df_dti):
@@ -221,10 +272,10 @@ def drug2emb_encoder(x, dbpe, words2idx_d):
 
 def MolTrans_config_DBPE():
     config = {}
-    config['batch_size'] = 64
+    config['batch_size'] = 13
     config['input_dim_drug'] = 23532
     config['input_dim_target'] = 16693
-    config['train_epoch'] = 13
+    config['train_epoch'] = 100
     config['max_drug_seq'] = 50
     config['max_protein_seq'] = 545
     config['emb_size'] = 384
@@ -244,3 +295,68 @@ def MolTrans_config_DBPE():
     config['hidden_dropout_prob'] = 0.1
     config['flat_dim'] = 78192
     return config
+
+
+# used for HyperAttentionDTI
+CHARISOSMISET = {"#": 29, "%": 30, ")": 31, "(": 1, "+": 32, "-": 33, "/": 34, ".": 2,
+                 "1": 35, "0": 3, "3": 36, "2": 4, "5": 37, "4": 5, "7": 38, "6": 6,
+                 "9": 39, "8": 7, "=": 40, "A": 41, "@": 8, "C": 42, "B": 9, "E": 43,
+                 "D": 10, "G": 44, "F": 11, "I": 45, "H": 12, "K": 46, "M": 47, "L": 13,
+                 "O": 48, "N": 14, "P": 15, "S": 49, "R": 16, "U": 50, "T": 17, "W": 51,
+                 "V": 18, "Y": 52, "[": 53, "Z": 19, "]": 54, "\\": 20, "a": 55, "c": 56,
+                 "b": 21, "e": 57, "d": 22, "g": 58, "f": 23, "i": 59, "h": 24, "m": 60,
+                 "l": 25, "o": 61, "n": 26, "s": 62, "r": 27, "u": 63, "t": 28, "y": 64}
+
+CHARISOSMILEN = 64
+
+CHARPROTSET = {"A": 1, "C": 2, "B": 3, "E": 4, "D": 5, "G": 6,
+               "F": 7, "I": 8, "H": 9, "K": 10, "M": 11, "L": 12,
+               "O": 13, "N": 14, "Q": 15, "P": 16, "S": 17, "R": 18,
+               "U": 19, "T": 20, "W": 21, "V": 22, "Y": 23, "X": 24, "Z": 25}
+
+CHARPROTLEN = 25
+def label_smiles(line, smi_ch_ind, MAX_SMI_LEN=100):
+    X = np.zeros(MAX_SMI_LEN,dtype=np.int64())
+    for i, ch in enumerate(line[:MAX_SMI_LEN]):
+        X[i] = smi_ch_ind[ch]
+    return X
+
+
+def label_sequence(line, smi_ch_ind, MAX_SEQ_LEN=1000):
+    X = np.zeros(MAX_SEQ_LEN,np.int64())
+    for i, ch in enumerate(line[:MAX_SEQ_LEN]):
+        X[i] = smi_ch_ind[ch]
+    return X
+
+class CustomDataSet(Dataset):
+    def __init__(self, pairs):
+        self.pairs = pairs
+
+    def __getitem__(self, item):
+        return self.pairs[item]
+
+    def __len__(self):
+        return len(self.pairs)
+
+def collate_fn(batch_data):
+    N = len(batch_data)
+    drug_ids, protein_ids = [],[]
+    compound_max = 100
+    protein_max = 1000
+    compound_new = torch.zeros((N, compound_max),dtype=torch.long)
+    protein_new = torch.zeros((N, protein_max),dtype=torch.long)
+    labels_new = torch.zeros(N, dtype=torch.float)
+    for i,pair in enumerate(batch_data):
+        # _, _, compoundstr, proteinstr, label = pair.strip().split()
+        pair = pair.strip().split()
+        drug_id,protein_id, compoundstr, proteinstr, label = pair[-5], pair[-4],pair[-3], pair[-2], pair[-1]
+        drug_ids.append(drug_id)
+        protein_ids.append(protein_id)
+        compoundint = torch.from_numpy(label_smiles(compoundstr, CHARISOSMISET,compound_max))
+        compound_new[i] = compoundint
+        proteinint = torch.from_numpy(label_sequence(proteinstr, CHARPROTSET,protein_max))
+        protein_new[i] = proteinint
+        label = float(label)
+        labels_new[i] = label
+    # return (drug_ids,protein_ids, compound_new, protein_new, labels_new)
+    return (compound_new, protein_new, labels_new)

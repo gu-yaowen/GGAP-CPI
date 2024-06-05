@@ -101,11 +101,10 @@ def evaluate_epoch(args, model, data, scaler):
 
 
 def train_KANO(args, logger):
-
     # check in the current task is finished previously, if so, skip
-    # if os.path.exists(os.path.join(args.save_path, 'KANO_test_pred.csv')):
-    #     logger.info(f'current task {args.data_name} has been finished, skip...')
-    #     return
+    if os.path.exists(os.path.join(args.save_path, 'KANO_test_pred.csv')):
+        logger.info(f'current task {args.data_name} has been finished, skip...')
+        return
     args.atom_output = False
 
     df, test_idx, train_data, val_data, test_data = process_data_QSAR(args, logger)
@@ -157,6 +156,7 @@ def train_KANO(args, logger):
     logger.info(f'metric function: {args.metric_func}') if args.print else None
 
     n_iter = 0
+    #####################################
     args.prompt = False
     metric_dict = set_collect_metric(args)
     best_score = float('inf') if args.minimize_score else -float('inf')
@@ -182,14 +182,11 @@ def train_KANO(args, logger):
                     list(val_scores.values())[0][0], list(test_scores.values())[0][0])) if args.print else None
         metric_dict = collect_metric_epoch(args, metric_dict, loss, val_scores, test_scores)
         
-        # if args.minimize_score and list(val_scores.values())[0][0] < best_score or \
-        #         not args.minimize_score and list(val_scores.values())[0][0] > best_score:
         if loss < best_score:
             best_score, best_epoch = list(val_scores.values())[0][-1], epoch
             best_test_score = list(test_scores.values())[0][-1]
             save_checkpoint(os.path.join(args.save_path, 'KANO_model.pt'), model, scaler, features_scaler, args) 
-            # logger.info('Best model saved at epoch : {:02d}, Validation score : {:.4f}'.format(best_epoch, best_score))
-    logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
+     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
     # save results

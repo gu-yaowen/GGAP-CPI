@@ -5,14 +5,17 @@ import logging
 import molvs
 import requests
 import torch
+import pickle
 import numpy as np
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from yaml import load, Loader
 from argparse import Namespace
 from warnings import simplefilter
 from chemprop.data import StandardScaler
 from chembl_webresource_client.new_client import new_client
 from MoleculeACE.benchmark.cliffs import ActivityCliffs
+from KANO_model.model import MoleculeModel, prompt_generator_output
 
 
 def define_logging(args, logger):
@@ -62,24 +65,49 @@ def set_up(args):
 
 
 def set_save_path(args):
-    args.save_path = os.path.join('exp_results', args.train_model, 
-                                    args.data_name, str(args.seed))
+    if args.ablation == 'none':
+        args.save_path = os.path.join('exp_results', args.train_model, 
+                                        args.data_name, str(args.seed))
+    else:
+        args.save_path = os.path.join('exp_results', args.train_model + '_' + args.ablation, 
+                                        args.data_name, str(args.seed))
     if args.mode in ['train', 'retrain']:
         args.save_model_path = os.path.join(args.save_path, f'{args.train_model}_model.pt')
         args.save_best_model_path = os.path.join(args.save_path, f'{args.train_model}_best_model.pt')
         args.save_pred_path = os.path.join(args.save_path, f'{args.train_model}_test_pred.csv')
-        args.save_metric_path = os.path.join(args.save_path, f'{args.baseline_model}_metrics.pkl')
+        args.save_metric_path = os.path.join(args.save_path, f'{args.train_model}_metrics.pkl')
     elif args.mode in ['finetune']:
         args.save_model_path = os.path.join(args.save_path, f'{args.train_model}_model_ft.pt')
         args.save_best_model_path = os.path.join(args.save_path, f'{args.train_model}_best_model_ft.pt')
-        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred_ft.csv')
-        args.save_metric_path = os.path.join(args.save_path, f'{args.baseline_model}_metrics_ft.pkl')
+        args.save_pred_path = os.path.join(args.save_path, f'{args.data_name}_test_pred_ft.csv')
+        args.save_metric_path = os.path.join(args.save_path, f'{args.train_model}_metrics_ft.pkl')
     elif args.mode in ['inference']:
-        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred_infer.csv')
-    elif args.mode in ['baseline_CPI', 'baselin_QSAR']:
-        args.save_path = os.path.join('exp_results', args.baseline_model, 
-                                      args.data_name, str(args.seed))
-        args.save_pred_path = os.path.join(args.save_path, f'{args.baseline_model}_test_pred.csv')
+        args.save_path = args.model_path
+        args.save_pred_path = os.path.join(args.save_path, f'{args.data_name}_test_pred_infer.csv')
+        args.save_best_model_path = os.path.join(args.save_path, f'{args.train_model}_best_model.pt')
+    elif args.mode in ['baseline_CPI', 'baseline_QSAR']:
+        if args.mode == 'baseline_CPI':
+            args.save_path = os.path.join('exp_results', args.baseline_model, 
+                                        args.data_name, str(args.seed))
+        else:
+            args.save_path = os.path.join('exp_results', args.baseline_model, args.endpoint_type,
+                                        args.data_name, str(args.seed))
+        args.save_pred_path = os.path.join(args.save_path, f'{args.data_name}_test_pred.csv')
+    elif args.mode in ['baseline_inference']:
+        args.save_path = args.model_path
+        args.save_pred_path = os.path.join(args.save_path, f'{args.data_name}_test_pred_infer.csv')
+        if args.train_model == 'KANO_ESM':
+            args.save_best_model_path = os.path.join(args.save_path, f'{args.baseline_model}_best_model.pt')
+        elif args.baseline_model == 'DeepDTA':
+            args.save_best_model_path = os.path.join(args.save_path, 'model.pt')
+        elif args.baseline_model == 'GraphDTA':
+            args.save_best_model_path = os.path.join(args.save_path, 'GraphDTA.pt')
+        elif args.baseline_model == 'HyperAttentionDTI':
+            args.save_best_model_path = os.path.join(args.save_path, 'HyperAttentionDTI.pt')
+        elif args.baseline_model == 'PerceiverCPI':
+            args.save_best_model_path = os.path.join(args.save_path, 'fold_0', 'model_0', 'model.pt')
+        elif args.baseline_model in ['ECFP_ESM_GBM', 'ECFP_ESM_RF', 'KANO_ESM_GBM', 'KANO_ESM_RF']:
+            args.save_best_model_path = os.path.join(args.save_path, f'{args.baseline_model}_model.pkl')
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     return args
@@ -156,11 +184,65 @@ def get_protein_sequence(uniprot_id):
         return None
     
 
+def get_molecule_feature(args, logger, smiles):
+    logger.info(f'loading molecule features...') if args.print else None
+    args.atom_output = False
+    molecule_encoder = MoleculeModel(classification=args.dataset_type == 'classification',
+                                    multiclass=args.dataset_type == 'multiclass',
+                                    pretrain=False)
+    molecule_encoder.create_encoder(args, 'CMPNN')
+    molecule_encoder.encoder.encoder.W_i_atom = prompt_generator_output(args)(
+                                        molecule_encoder.encoder.encoder.W_i_atom)
+    molecule_encoder.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'), strict=False)
+    molecule_encoder.to(args.device)
+    molecule_encoder.eval()
+    feat = []
+    if len(smiles) > 0:
+        for i in range(0, len(smiles), args.batch_size):
+            mol_feat, _ = molecule_encoder.encoder('finetune', False, 
+                                smiles[i: i + args.batch_size if i + args.batch_size < len(smiles) else len(smiles)])
+            mol_feat = mol_feat.detach().cpu().numpy()
+            for j in mol_feat:
+                feat.append(j)
+    return feat
+
+
+def get_protein_feature(args, logger, df_all):
+    logger.info('loading protein features...') if args.print else None
+    prot_list = df_all['Uniprot_id'].unique()
+
+    prot_graph_dict = {}
+    for prot_id in prot_list:
+        with open(f'data/Protein_pretrained_feat/{prot_id}.pkl', 'rb') as f:
+            prot_feat = pickle.load(f)
+        prot_feat_values = list(prot_feat.values())[0]
+        feat, graph = prot_feat_values[1], prot_feat_values[-1]
+
+        try:
+            # x = torch.tensor(feat[:graph.num_nodes], device=args.device)
+            x = torch.tensor(feat[:graph.num_nodes])
+            if x.shape[0] < graph.num_nodes:
+                # x = torch.cat([x, torch.zeros(graph.num_nodes - x.shape[0], x.shape[1], device=args.device)], dim=0)
+                x = torch.cat([x, torch.zeros(graph.num_nodes - x.shape[0], x.shape[1])], dim=0)
+            graph.x = x
+        except Exception as e:
+            logger.error(f'Error processing {prot_id}: {e}')
+            continue
+
+        prot_graph_dict[prot_id] = graph
+
+    return prot_graph_dict
+
+
 def set_collect_metric(args):
     metric_dict = {}
     if args.mode in ['train', 'retrain', 'finetune']:
         metric_dict['Total'] = []
-        for key in args.loss_func_wt.keys():
+        if args.dataset_type == 'regression':
+            keys = ['MSE', 'CLS', 'CL']
+        elif args.dataset_type == 'classification':
+            keys = ['AUC', 'AUPR', 'CrossEntropy']
+        for key in keys:
             metric_dict[key] = []
     else: 
         metric_dict['loss'] = []
@@ -230,50 +312,37 @@ def save_checkpoint(path: str,
     torch.save(state, path)
 
 
-# def calc_cliff_metrics(y_test_pred: Union[List[float], np.array], y_test: Union[List[float], np.array],
-#                     cliff_mols_test: List[int] = None, smiles_test: List[str] = None,
-#                     y_train: Union[List[float], np.array] = None, smiles_train: List[str] = None,
-#                     metrics = 'RMSE', **kwargs):
-#     """ Calculate the RMSE of activity cliff compounds
+def get_fingerprint(smiles_list):
+    mols = [Chem.MolFromSmiles(smile) for smile in smiles_list]
+    fps = [AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048) for mol in mols]
+    return np.array(fps)
 
-#     :param y_test_pred: (lst/array) predicted test values
-#     :param y_test: (lst/array) true test values
-#     :param cliff_mols_test: (lst) binary list denoting if a molecule is an activity cliff compound
-#     :param smiles_test: (lst) list of SMILES strings of the test molecules
-#     :param y_train: (lst/array) train labels
-#     :param smiles_train: (lst) list of SMILES strings of the train molecules
-#     :param kwargs: arguments for ActivityCliffs()
-#     :return: float RMSE on activity cliff compounds
-#     """
 
-#     # Check if we can compute activity cliffs when pre-computed ones are not provided.
-#     if cliff_mols_test is None:
-#         if smiles_test is None or y_train is None or smiles_train is None:
-#             raise ValueError('if cliff_mols_test is None, smiles_test, y_train, and smiles_train should be provided '
-#                              'to compute activity cliffs')
+def get_residue_onehot_encoding(args, batch_prot):
+    residue = batch_prot.node_id
+    res_feat = []
+    for idx in range(len(residue)):
+        res_list = [res.split(':')[1].upper() for res in residue[idx]]
+        res_feat.extend(generate_onehot_features(res_list))
+    batch_prot.x = torch.tensor(res_feat).float().to(args.device)
+    return batch_prot
 
-#     # Convert to numpy array if it is none
-#     y_test_pred = np.array(y_test_pred) if type(y_test_pred) is not np.array else y_test_pred
-#     y_test = np.array(y_test) if type(y_test) is not np.array else y_test
 
-#     if cliff_mols_test is None:
-#         y_train = np.array(y_train) if type(y_train) is not np.array else y_train
-#         # Calculate cliffs and
-#         cliffs = ActivityCliffs(smiles_train + smiles_test, np.append(y_train, y_test))
-#         cliff_mols = cliffs.get_cliff_molecules(return_smiles=False, **kwargs)
-#         # Take only the test cliffs
-#         cliff_mols_test = cliff_mols[len(smiles_train):]
-
-#     # Get the index of the activity cliff molecules
-#     cliff_test_idx = [i for i, cliff in enumerate(cliff_mols_test) if cliff == 1]
-
-#     # Filter out only the predicted and true values of the activity cliff molecules
-#     y_pred_cliff_mols = y_test_pred[cliff_test_idx]
-#     y_test_cliff_mols = y_test[cliff_test_idx]
-
-#     if metric == 'RMSE':
-#         return calc_rmse(y_pred_cliff_mols, y_test_cliff_mols)
-#     elif metric == 'R2':
-#         return calc_r2(y_pred_cliff_mols, y_test_cliff_mols)
-#     elif metric == 'PCC':
-#         return calc_pcc(y_pred_cliff_mols, y_test_cliff_mols)
+def generate_onehot_features(residue_sequence):
+    amino_acids = ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS',
+                   'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP',
+                   'TYR', 'VAL']
+    one_code = {'A': 'ALA', 'R': 'ARG', 'N': 'ASN', 'D': 'ASP', 'C': 'CYS',
+                'Q': 'GLN', 'E': 'GLU', 'G': 'GLY', 'H': 'HIS', 'I': 'ILE',
+                'L': 'LEU', 'K': 'LYS', 'M': 'MET', 'F': 'PHE', 'P': 'PRO',
+                'S': 'SER', 'T': 'THR', 'W': 'TRP', 'Y': 'TYR', 'V': 'VAL'}
+    aa_to_index = {aa: idx for idx, aa in enumerate(amino_acids)}
+    one_hot_features = []
+    for aa in residue_sequence:
+        one_hot = np.zeros(len(amino_acids))
+        if aa in one_code:
+            aa = one_code[aa]
+        one_hot[aa_to_index[aa]] = 1
+        one_hot_features.append(one_hot)
+    
+    return one_hot_features

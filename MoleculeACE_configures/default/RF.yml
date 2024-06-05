@@ -1,2 +1,3 @@
 # The number of trees in the forest.
 n_estimators: 250
+n_jobs: -1

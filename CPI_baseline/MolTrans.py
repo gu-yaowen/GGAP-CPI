@@ -33,10 +33,12 @@ class MolTrans():
         else:
             self.device = torch.device("cpu")
             logger.info("Using CPU")
+
+
         self.model = self.model.to(self.device)
 
         self.LR = 1e-4
-        self.NUM_EPOCHS = 13
+        self.NUM_EPOCHS = 100
         self.LOG_INTERVAL = 10
         logger.info("Batch size %d, Learning rate %f, Num epochs %d" %
                     (config['batch_size'], self.LR, self.NUM_EPOCHS))

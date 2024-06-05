@@ -14,6 +14,9 @@ class GraphDTA():
         # based on the reported performance in GraphDTA paper, 
         # we use GIN as the best-performing model
         self.model = GINConvNet()
+        if args.mode == 'baseline_inference':
+            logger.info('load pretrained GraphDTA model') if args.print else None
+            self.load_model(args.save_best_model_path)
         if args.gpu is not None:
             self.device = torch.device("cuda:%d" % args.gpu)
             logger.info("Using GPU: %d" % args.gpu)
@@ -75,6 +78,9 @@ class GraphDTA():
 
     def save_model(self, path):
         torch.save(self.model.state_dict(), os.path.join(path, 'GraphDTA.pt'))
+
+    def load_model(self, path):
+        self.model.load_state_dict(torch.load(path, map_location='cpu'), strict=False)
 
 
 # GINConv model

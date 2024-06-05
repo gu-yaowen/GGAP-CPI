@@ -67,12 +67,12 @@ class CMPNEncoder(nn.Module):
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, atom_num, fg_num, f_fgs, fg_scope = mol_graph.get_components()
         if self.args.cuda or next(self.parameters()).is_cuda:
             f_atoms, f_bonds, a2b, b2a, b2revb, f_fgs = (
-                    f_atoms.cuda(), f_bonds.cuda(), 
-                    a2b.cuda(), b2a.cuda(), b2revb.cuda(), f_fgs.cuda())
+                    f_atoms.to(self.args.device), f_bonds.to(self.args.device), 
+                    a2b.to(self.args.device), b2a.to(self.args.device), b2revb.to(self.args.device), f_fgs.to(self.args.device))
         
         fg_index = [i*13 for i in range(mol_graph.n_mols)]
         fg_indxs = [[i]*133 for i in fg_index]
-        fg_indxs = torch.LongTensor(fg_indxs).cuda()
+        fg_indxs = torch.LongTensor(fg_indxs).to(self.args.device)
 
         if self.args.step == 'functional_prompt':
             # make sure the prompt exists
@@ -86,10 +86,10 @@ class CMPNEncoder(nn.Module):
                 f_fgs.scatter_(0, fg_indxs[i:i+1], self.cls)
             
             target_index = [val for val in range(mol_graph.n_mols) for i in range(13)]
-            target_index = torch.LongTensor(target_index).cuda()
+            target_index = torch.LongTensor(target_index).to(self.args.device)
             fg_hiddens = scatter_add(f_fgs, target_index, 0)
-            fg_hiddens_atom = torch.repeat_interleave(fg_hiddens, torch.tensor(atom_num).cuda(), dim=0)
-            fg_out = torch.zeros(1, 133).cuda()
+            fg_hiddens_atom = torch.repeat_interleave(fg_hiddens, torch.tensor(atom_num).to(self.args.device), dim=0)
+            fg_out = torch.zeros(1, 133).to(self.args.device)
             fg_out = torch.cat((fg_out, fg_hiddens_atom), 0)
             f_atoms += fg_out
             # Input
@@ -100,10 +100,10 @@ class CMPNEncoder(nn.Module):
                 f_fgs.scatter_(0, fg_indxs[i:i+1], self.cls)
             
             target_index = [val for val in range(mol_graph.n_mols) for i in range(13)]
-            target_index = torch.LongTensor(target_index).cuda()
+            target_index = torch.LongTensor(target_index).to(self.args.device)
             fg_hiddens = scatter_add(f_fgs, target_index, 0)
-            fg_hiddens_atom = torch.repeat_interleave(fg_hiddens, torch.tensor(atom_num).cuda(), dim=0)
-            fg_out = torch.zeros(1, 133).cuda()
+            fg_hiddens_atom = torch.repeat_interleave(fg_hiddens, torch.tensor(atom_num).to(self.args.device), dim=0)
+            fg_out = torch.zeros(1, 133).to(self.args.device)
             fg_out = torch.cat((fg_out, fg_hiddens_atom), 0)
             f_atoms = torch.cat((fg_out, f_atoms), 1)
             # Input
@@ -217,4 +217,6 @@ class CMPN(nn.Module):
         if not self.graph_input:  # if features only, batch won't even be used
             batch = mol2graph(batch, self.args, prompt)
         mol, atom = self.encoder.forward(step, batch, features_batch)
+        if self.args.baseline_model == 'KANO':
+            return mol
         return mol, atom

@@ -114,7 +114,6 @@ class MoleculeModel(nn.Module):
         return output
 
 
-
 def build_model(args: Namespace, encoder_name) -> nn.Module:
     """
     Builds a MoleculeModel, which is a message passing neural network + feed-forward layers.
@@ -212,10 +211,10 @@ class Prompt_generator(nn.Module):
         
         hidden_states = self.attention_layer_1(fg_states, fg_states)
         hidden_states = self.attention_layer_2(hidden_states, fg_states)
-        fg_out = torch.zeros(1, self.hidden_size).cuda()
+        fg_out = torch.zeros(1, self.hidden_size).to(atom_hiddens.device)
         cls_hiddens = torch.gather(hidden_states, 0, fg_indexs)
         cls_hiddens = self.linear(cls_hiddens)
-        fg_hiddens = torch.repeat_interleave(cls_hiddens, torch.tensor(atom_num).cuda(), dim=0)
+        fg_hiddens = torch.repeat_interleave(cls_hiddens, torch.tensor(atom_num).to(atom_hiddens.device), dim=0)
         fg_out = torch.cat((fg_out, fg_hiddens), 0)
 
         fg_out = self.norm(fg_out)
