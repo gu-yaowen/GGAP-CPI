@@ -1,10 +1,12 @@
 srun --cpus-per-task=2 --mem=32GB --gres=gpu:v100:1 --time=4:00:00 --pty /bin/bash
 srun --cpus-per-task=2 --mem=32GB --time=3:00:00 --pty /bin/bash
-sbatch --time=48:00:00 --cpus-per-task=10 --mem=32GB --gres=gpu:a100:1 --wrap "sleep infinity"
+sbatch --time=48:00:00 --cpus-per-task=10 --mem=64GB --gres=gpu:a100:1 --wrap "sleep infinity"
 
 sbatch --time=12:00:00 --cpus-per-task=6 --mem=32GB --wrap "sleep infinity"
 
-sbatch --time=96:00:00 --cpus-per-task=4 --mem=64GB --wrap "sleep infinity"
+sbatch --time=96:00:00 --cpus-per-task=4 --mem=32GB --wrap "sleep infinity"
+
+tar cvf Activity-cliff-prediction.tar -C /scratch/yg3191 Activity-cliff-prediction
 
 singularity exec --nv --overlay chem.ext3:ro /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif /bin/bash
 source /ext3/env.sh

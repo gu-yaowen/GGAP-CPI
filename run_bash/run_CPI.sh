@@ -1,15 +1,42 @@
-# Description: Run CPI experiments
-# model in ['KANO_Prot', 'KANO_Siams', 'DeepDTA', 'GraphDTA', 'MolTrans']
+# Description: Run CPI training, finetuning, and virtual screening testing
+
+# model in ['KANO_Prot', 'KANO_ESM', 'ECFP_ESM_RF', 'ECFP_ESM_GBM',
+#           'DeepDTA', 'GraphDTA', 'HyperAttentionDTI', 'PerceiverCPI']
 model="$1"
-# filename in ['CPI_ki', 'CPI_kd', 'CPI_ec50', 'CPI_ic50', 'MolACE_CPI_ki', 'MolACE_CPI_ec50']
+
+# filename in ['ki', 'kd', 'ec50', 'ic50', 'integrated'] -> for CPI2M-main, 
+#             feasible for mode in ['train', 'retrain', 'finetune', 'baseline_CPI']
+
+#             ['ki_last', 'kd_last', 'ec50_last', 'ic50_last'] -> for CPI2M-few,
+#             feasible for mode in ['inference']
+
+#             ['MolACE_CPI_ki', 'MolACE_CPI_ec50'] -> for MoleculeACE,
+#             feasible for mode in ['train', 'retrain', 'finetune', 'baseline_CPI']
+
+#             ['PDBbind_CASF', 'PDBbind_all'] -> for CASF-2016,
+#             feasible for mode in ['inference', 'finetune']
+
+#             {LIT-PCBA ID}_LITPCBA.csv -> for LIT-PCBA,
+#             feasible for mode in ['inference']
 filename="$2"
-# mode in ['train', 'inference', 'retrain', 'finetune', 'baseline_CPI']
+
+# mode in ['train', 'inference', 'retrain', 'finetune', 'baseline_CPI'], 
+# finetune for activity-based transfer learning
+# retrain for some devices with limited running time, then use "retrain" 
+# to restart training from the previous stopped epoches.
 mode="$3"
+
+# random seed setting
 seed="$4"
 
+# pretrained model path for inference, retrain, and finetune.
+# e.g., 'ki/2' to load pretrained model saved in exp_results/KANO_Prot/ki/2
 model_path="$5"
-seed2="$6"
-ablation="$7"
+
+# ablation setting for ablation study, in ['none', 'KANO', 'ESM', 'GCN', 'Attn']
+# ablation="$6"
+ablation="none"
+
 echo "Running on $filename, model: $model, mode: $mode"
 
 if [ "$mode" = "baseline_CPI" ]; then
@@ -42,7 +69,7 @@ elif [ "$mode" = "baseline_inference" ]; then
         python main.py --gpu 0 \
                         --mode $mode \
                         --data_path data/${filename}.csv \
-                        --model_path exp_results/$model/$model_path/$seed \
+                        --model_path exp_results/$model/$model_path \
                         --dataset_type regression \
                         --seed $seed \
                         --baseline_model $model \
@@ -70,7 +97,7 @@ elif [ "$mode" = "retrain" ]; then
                         --train_model $model \
                         --model_path exp_results/$model/$filename/$seed \
                         --loss_weights "1 0 0" \
-                        --batch_size 256 \
+                        --batch_size 64 \
                         --dropout 0.0 \
                         --print
     else
@@ -94,7 +121,7 @@ elif [ "$mode" = "finetune" ]; then
                     --dataset_type regression \
                     --seed $seed \
                     --train_model $model \
-                    --model_path exp_results/$model/$model_path/$seed2 \
+                    --model_path exp_results/$model/$model_path \
                     --loss_weights "1 0 0" \
                     --batch_size 64 \
                     --dropout 0.0 \
@@ -107,12 +134,12 @@ elif [ "$mode" = "inference" ]; then
                     --dataset_type regression \
                     --seed $seed \
                     --train_model $model \
-                    --model_path exp_results/"$model"/$model_path/$seed2 \
+                    --model_path exp_results/"$model"/$model_path \
                     --loss_weights "1 0 0" \
                     --batch_size 64 \
                     --dropout 0.0 \
+                    --ablation $ablation \
                     --print
-                    # --ablation $ablation \
 else
     echo "Invalid mode: $mode"
 fi

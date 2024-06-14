@@ -76,7 +76,7 @@ elif [ "$mode" = "retrain" ]; then
                         --train_model $model \
                         --model_path exp_results/$model/$filename/$seed \
                         --loss_weights "1 0 0" \
-                        --batch_size 256 \
+                        --batch_size 64 \
                         --dropout 0.0 \
                         --print
     else
@@ -104,7 +104,7 @@ elif [ "$mode" = "finetune" ]; then
                     --train_model $model \
                     --model_path exp_results/$model/$model_path/$seed2 \
                     --loss_weights "1 0 0" \
-                    --batch_size 256 \
+                    --batch_size 64 \
                     --dropout 0.0 \
                     --print
 elif [ "$mode" = "inference" ]; then

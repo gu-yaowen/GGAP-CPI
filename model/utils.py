@@ -68,7 +68,10 @@ def set_up_model(args, logger):
                                         f'{args.train_model}_best_model.pt'), map_location='cpu')['state_dict'])
         logger.info(f'load model from {args.model_path} for finetuning') if args.print else None
     elif args.mode == 'retrain':
-        pre_file = torch.load(args.save_model_path, map_location='cpu')
+        try:
+            pre_file = torch.load(args.save_model_path, map_location='cpu')
+        except:
+            pre_file = torch.load(args.save_model_path.split('.')[0] + '_ft.pt', map_location='cpu')
         model.load_state_dict(pre_file['state_dict'])
         logger.info(f'load model from {args.save_model_path} for retraining') if args.print else None
         optimizer.load_state_dict(pre_file['optimizer'])

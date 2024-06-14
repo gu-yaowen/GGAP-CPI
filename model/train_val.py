@@ -29,7 +29,8 @@ def predict_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, sca
     query_smiles, query_labels = data
     query_labels = torch.tensor(query_labels).to(args.device)
     pred = []
-    iter_size = 256 if 256 < len(query_smiles) else len(query_smiles)
+    # iter_size = 256 if 256 < len(query_smiles) else len(query_smiles)
+    iter_size = args.batch_size
 
     for i in tqdm(range(0, len(query_smiles), iter_size)):
         smiles = query_smiles[i:i + iter_size]
@@ -49,11 +50,11 @@ def predict_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, sca
         pred.extend(batch_pred.tolist())
 
     num_data = int(len(query_smiles) / args.siams_num) 
-    pred = np.array(pred).reshape(num_data, -1).mean(axis=1, keepdims=True).flatten()
-    label = np.array(query_labels.cpu().numpy()).reshape(num_data, -1).mean(axis=1, keepdims=True)
+    pred = np.array(pred).reshape(num_data, -1).flatten()
+    label = np.array(query_labels.cpu().numpy()).reshape(num_data, -1).flatten()
     if scaler:
         label = scaler.inverse_transform(label)
-    return pred.tolist(), label.tolist()
+    return np.array(pred.tolist()).reshape(-1, 1), np.array(label.tolist()).reshape(-1, 1)
 
 
 def train_epoch(args, model, prot_graph_dict, data, data_prot, siams_data, 

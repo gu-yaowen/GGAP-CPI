@@ -4,7 +4,7 @@ conda activate bind
 cd BIND
 conda activate chem_gyw
 cd Activity-cliff-prediction
-srun --jobid=47080696 --pty /bin/bash
+srun --jobid=47498814 --pty /bin/bash
 
 
 for data in ki kd ec50; do
@@ -70,11 +70,26 @@ sh sh_run/run_CPI.sh $model $data baseline_CPI 2 $data 2 none
 done
 done
 
+
 # train
 sbatch run_CPI.sbatch KANO_Prot ic50 retrain 2 ic50 2 none
 sh sh_run/run_CPI.sh KANO_Prot ic50 retrain 2 ic50 2 none
 sbatch run_CPI.sbatch KANO_Prot integrated train 2 integrated 2 none
-sh sh_run/run_CPI.sh KANO_Prot integrated train 2 integrated 2 none
+sh sh_run/run_CPI.sh KANO_Prot integrated retrain 2 integrated 2 none
+
+singularity exec --nv --overlay chem_new.ext3:ro /scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif /bin/bash
+source /ext3/env.sh
+conda activate chem_gyw
+cd Activity-cliff-prediction
+
+for dataset in qi_fgfr_time_v2 qi_fgfr_scaffold_v2 qi_CPI2M_fgfr_time_v2 qi_CPI2M_fgfr_scaffold_v2; do 
+dataset=qi_CPI2M_fgfr_time_v2
+# sh sh_run/run_CPI_cls.sh KANO_Prot $dataset train 0 $dataset 0 none
+# sh sh_run/run_CPI_cls.sh KANO_Prot $dataset retrain 0 $dataset 0 none
+sh sh_run/run_CPI_cls.sh KANO_Prot $dataset retrain 1 $dataset 1 none
+sh sh_run/run_CPI_cls.sh KANO_Prot $dataset finetune 1 binder_nonbinder_fgfr_pt 2 none
+done
+watch nvidia-smi
 
 # finetune
 sh sh_run/run_CPI.sh KANO_Prot MolACE_CPI_ki finetune 6 ic50 2 none
@@ -84,8 +99,11 @@ sbatch run_CPI.sbatch KANO_Prot MolACE_CPI_ec50 finetune 6 ic50 2 none
 
 sbatch run_CPI.sbatch KANO_Prot ki_ft finetune 6 ic50 2 none
 sbatch run_CPI.sbatch KANO_Prot ec50_ft finetune 6 ic50 2 none
-sh sh_run/run_CPI.sh KANO_Prot ec50_ft finetune 6 ic50 2 none
-sh sh_run/run_CPI.sh KANO_Prot ki_ft finetune 6 ic50 2 none
+sh sh_run/run_CPI.sh KANO_Prot ec50_ft retrain 6 ec50_ft 6 none
+sh sh_run/run_CPI.sh KANO_Prot ec50 finetune 6 ic50 2 none
+sh sh_run/run_CPI.sh KANO_Prot ki retrain 6 ki 6 none
+sh sh_run/run_CPI.sh KANO_Prot ec50 retrain 6 ec50 6 none
+sh sh_run/run_CPI.sh KANO_Prot MolACE_CPI_ec50 finetune 2 ec50_ft 6 none
 
 cd Activity-cliff-prediction/sh_run
 
