@@ -5,8 +5,8 @@ This project is based on our paper "Mitigating Activity Cliff-induced Discrepanc
 ## Table of Contents
 
 - [Introduction](#introduction)
-- [Dataset](##Dataset)
-- [Model Training](##Model-Training)
+- [Dataset](#Dataset)
+- [Model Training](#Model-Training)
 - [Model Inference](#model-inference)
 - [Benchmark Results](#benchmark-results)
 - [Citation](#citation)
@@ -22,7 +22,7 @@ Our evaluation across three simulated scenarios (general, unknown proteins, and 
 This study proposes effective strategies for investigating activity cliffs in CPI predictions, enhancing our understanding of structure-activity relationship discontinuities and aiding future CPI methodology development.
 
 ## Dataset
-![Dataset](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/master/fig/dataset.jpg)
+![Dataset](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/main/fig/dataset.jpg)
 
 ### Dataset Summary
 
@@ -37,7 +37,7 @@ This study proposes effective strategies for investigating activity cliffs in CP
 |                        | EC50          | 42,301   | 28,818    | 1506       | 6.00             | 1.48             | -      |
 |                        | IC50          | 148,929  | 94,883    | 4562       | 5.69             | 1.43             | -      |
 
-We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for activity cliff estimation, [**CASF-2016**](http://www.pdbbind.org.cn/casf.php) and [**LIT-PCBA**](https://drugdesign.unistra.fr/LIT-PCBA/) for virtual screening estimation. All these data can be downloaded by: 
+We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for activity cliff estimation, [**CASF-2016**](http://www.pdbbind.org.cn/casf.php) and [**LIT-PCBA**](https://drugdesign.unistra.fr/LIT-PCBA/) for virtual screening estimation. We have organized these datasets and all of them can be downloaded by: 
 
 ### Description of CPI2M
 
@@ -47,10 +47,10 @@ We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for 
   
 
 ## Model
-![Model Architecture](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/master/fig/model.jpg)
+![Model Architecture](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/main/fig/model.jpg)
 
 ## Model training
-Available training dataset includes: CPI2M-main (noted as 'ki', 'kd', 'ec50', 'ic50', 'integrated'), MoleculeACE ('MolACE_CPI_ki', 'MolACE_CPI_ec50'), and PDBbind ('PDBbind_all', only for reproducing GGAP-CPI-ft on CASF-2016).
+Available training dataset includes: **CPI2M-main** (noted as 'ki', 'kd', 'ec50', 'ic50', 'integrated'), **MoleculeACE** ('MolACE_CPI_ki', 'MolACE_CPI_ec50'), and **PDBbind** ('PDBbind_all', only for reproducing GGAP-CPI-ft on CASF-2016).
 
 Please run the following terminal for model training: 
 
@@ -61,9 +61,9 @@ sh run_bash/run_CPI.sh KANO_Prot {DATASET} {SEED} train
 parameters include: 1. training dataset; 2. random seed; 3. mode (e.g., train).
 
 ## Model Inference
-We provide pretrained GGAP-CPI model on CPI2M-main dataset with different activity type predictor(GGAP-CPI-pKi, -pKd, -pEC50, -pIC50, and -pAC). We generally recommand you to use GGAP-CPI-pKi, GGAP-CPI-pIC50 or GGAP-CPI-pAC (AC means pretrained on "integrated" activity data) for inferencing on your own data. 
+We provide pretrained GGAP-CPI model on **CPI2M-main** dataset with different activity type predictor(GGAP-CPI-pKi, -pKd, -pEC50, -pIC50, and -pAC). We generally recommand you to use **GGAP-CPI-pKi**, **GGAP-CPI-pIC50** or **GGAP-CPI-pAC** (AC means pretrained on "integrated" activity data) for inferencing on your own data. 
 
-Available inference dataset includes: CPI2M-few ('ki_last', 'kd_last', 'ec50_last', 'ic50_last')
+Available inference dataset includes: **CPI2M-few** ('ki_last', 'kd_last', 'ec50_last', 'ic50_last'), **CASF-2016** ('PDBbind_CASF'), and **LIT-PCBA** ('UNIPROT_ID_LITPCBA').
 
 Taking GGAP-CPI-pIC50 for example, please run the following terminal for model inference on MoleculeACE-pEC50 dataset:
 
