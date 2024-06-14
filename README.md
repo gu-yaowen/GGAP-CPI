@@ -52,10 +52,10 @@ We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for 
 ## Model training
 Available training dataset includes: **CPI2M-main** (noted as 'ki', 'kd', 'ec50', 'ic50', 'integrated'), **MoleculeACE** ('MolACE_CPI_ki', 'MolACE_CPI_ec50'), and **PDBbind** ('PDBbind_all', only for reproducing GGAP-CPI-ft on CASF-2016).
 
-Please run the following terminal for model training: 
+Please run the following command for model training: 
 
 ```
-sh run_bash/run_CPI.sh KANO_Prot {DATASET} {SEED} train
+sh run_bash/run_CPI.sh KANO_Prot {DATA_NAME} {SEED} train
 ```
 
 parameters include: 1. training dataset; 2. random seed; 3. mode (e.g., train).
@@ -65,7 +65,7 @@ We provide pretrained GGAP-CPI model on **CPI2M-main** dataset with different ac
 
 Available inference dataset includes: **CPI2M-few** ('ki_last', 'kd_last', 'ec50_last', 'ic50_last'), **CASF-2016** ('PDBbind_CASF'), and **LIT-PCBA** ('UNIPROT_ID_LITPCBA').
 
-Taking GGAP-CPI-pIC50 for example, please run the following terminal for model inference on MoleculeACE-pEC50 dataset:
+Taking GGAP-CPI-pIC50 for example, please run the following command for model inference on MoleculeACE-pEC50 dataset:
 
 ```
 sh run_bash/run_CPI.sh KANO_Prot MolACE_CPI_ec50 {SEED} inference ic50/2
@@ -79,6 +79,18 @@ we add the benchmarking results with the output prediction files for each of the
 Also, to reproduce results for GGAP-CPI, you can run the code:
 
 Please note that there should be mild performance differences with different devices and package versions.
+
+## Use Your Own Data
+To train GGAP-CPI and other baseline models on your own **.CSV** data, which should at least include columns ['smiles', 'Uniprot_id', 'label']. Please run the following commands:
+```
+# preprocess data
+python process_data.py {DATA_NAME}
+# train
+sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} {SEED} train
+# optional: finetune, inference, ...
+```
+
+GGAP-CPI is also applicable for classification tasks such as binder/nonbinder classification and drug-target interaction prediction. Please replace ```run_CPI.sh``` by ```run_CPI_cls.sh``` for model training and testing.
 
 ## Citation
 TBD

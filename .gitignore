@@ -17,7 +17,7 @@ result/
 runs/
 Feature/
 CPI_baseline/PerceiverCPI/
-# sh_run/
+sh_run/
 __pycache__/
 
 # Ignore all .txt files in a specific directory
