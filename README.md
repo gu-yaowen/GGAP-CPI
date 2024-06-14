@@ -9,6 +9,7 @@ This project is based on our paper "Mitigating Activity Cliff-induced Discrepanc
 - [Model Training](#Model-Training)
 - [Model Inference](#model-inference)
 - [Benchmark Results](#benchmark-results)
+- [Use Your Own Data](#Use-Your-Own-Data)
 - [Citation](#citation)
 
 ## Introduction
