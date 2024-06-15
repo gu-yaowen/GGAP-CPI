@@ -18,6 +18,8 @@ model="$1"
 
 #             {LIT-PCBA ID}_LITPCBA.csv -> for LIT-PCBA,
 #             feasible for mode in ['inference']
+
+#             or your own .CSV data
 filename="$2"
 
 # mode in ['train', 'inference', 'retrain', 'finetune', 'baseline_CPI'], 
@@ -29,7 +31,7 @@ mode="$3"
 # random seed setting
 seed="$4"
 
-# pretrained model path for inference, retrain, and finetune.
+# pretrained model path for inference and finetune.
 # e.g., 'ki/2' to load pretrained model saved in exp_results/KANO_Prot/ki/2
 model_path="$5"
 

@@ -4,7 +4,7 @@ conda activate bind
 cd BIND
 conda activate chem_gyw
 cd Activity-cliff-prediction
-srun --jobid=47498814 --pty /bin/bash
+srun --jobid=47574318 --pty /bin/bash
 
 
 for data in ki kd ec50; do
