@@ -76,7 +76,7 @@ parameters include: 1. inference dataset; 2. random seed; 3. mode (e.g., inferen
 
 ## Benchmark Results
 The performances of GGAP-CPI and 19 baseline methods are evaluated on CPI2M-main, CPI2M-few, MoleculeACE, CASF-2016, and LIT-PCBA datasets. For your convience, 
-we add the benchmarking results with the output prediction files for each of them in "benchmark_result" folder. \
+we add the benchmarking result files for each of them in "benchmark_result" folder. \
 Also, to reproduce results for GGAP-CPI, you can run the code:
 
 Please note that there should be mild performance differences with different devices and package versions.
@@ -85,7 +85,7 @@ Please note that there should be mild performance differences with different dev
 To train GGAP-CPI and other baseline models on your own **.CSV** data, which should at least include columns ['smiles', 'Uniprot_id', 'label']. Please run the following commands:
 ```
 # preprocess data
-python process_data.py {DATA_NAME}
+python process_data.py --dataset {DATA} --task {CPI or QSAR} --split {random or ac} --train_ratio {RATIO} --seed {SEED}
 # train
 sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} {SEED} train
 # optional: finetune, inference, ...

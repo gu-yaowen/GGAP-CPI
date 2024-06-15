@@ -91,11 +91,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--dataset', type=str,
                         help='Dataset file name')
+    parser.add_argument('--task', type=str, default='CPI',
+                        choices=['CPI', 'QSAR'],
+                        help='Task type for your data (CPI or target-specific).'
+                             'The data processing could be a little different')
     parser.add_argument('--split', type=str, default='random',
                         choices=['random', 'ac'],
                         help='Data splitting method')
     parser.add_argument('--train_ratio', type=float, default=0.8,
-                        help='Train ratio')
+                        help='Train ratio to split data into train/test sets')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed')
     args = parser.parse_args()
@@ -129,19 +133,34 @@ if __name__ == '__main__':
         'If you dont have UniProt IDs but have PDB files, ' \
         'you can fill the "Uniprot_id" column with PDB file name which should be stored in "data/PDB" folder.'
     # get protein sequence
-    df['Sequence'] = df['Uniprot_id'].map(lambda x: extract_sequence_from_pdb(f'data/PDB/{x}') 
-                                        if '.pdb' in x else get_protein_sequence(x))
+    if 'Sequence' not in df.columns:
+        df['Sequence'] = df['Uniprot_id'].map(lambda x: extract_sequence_from_pdb(f'data/PDB/{x}') 
+                                            if '.pdb' in x else get_protein_sequence(x))
+        
     # get protein graph
     generate_protein_graph(df)
 
     # data splitting
-    if args.split == 'random':
-        df['split'] = np.random.choice(['train', 'test'], len(df), p=[args.train_ratio, 1-args.train_ratio])
-    elif args.split == 'ac' and task_type == 'classification':
-        df = split_data(df['smiles'].values.tolist(),
-                        bioactivity=df['y'].values.tolist(),
-                        in_log10=True, similarity=0.9, test_size=1-args.train_ratio, random_state=args.seed)
-    else:
-        raise ValueError('Cannot use activity cliff-based splitting for classification tasks.')
+    df_all = []
+    if 'split' not in df.columns or (args.task == 'QSAR' and not os.path.exist(f'data/{args.dataset}')):
+        for target in df['Uniprot_id'].unique():
+            subset = df[df['Uniprot_id'] == target]
+            subset = subset.reset_index(drop=True)
+            if args.split == 'random':
+                subset['split'] = np.random.choice(['train', 'test'], len(subset), p=[args.train_ratio, 1-args.train_ratio])
+            elif args.split == 'ac':
+                subset = split_data(subset['smiles'].values.tolist(),
+                                    bioactivity=subset['y'].values.tolist(),
+                                    in_log10=True, similarity=0.9, test_size=1-args.train_ratio, random_state=args.seed)
+            else:
+                raise ValueError('Cannot use activity cliff-based splitting for classification tasks.')
 
+            if args.task == 'QSAR':
+                if not os.path.exist(f'data/{args.dataset}'):
+                    subset.to_csv(f'data/{args.dataset}/{target}.csv', index=False)
+                subset.to_csv(f'data/{target}.csv', index=False)
+            elif args.task == 'CPI':
+                df_all.append(subset)
+                df_all.to_csv(f'data/{args.dataset}.csv', index=False)
+    
     print('Data processing finished. You can run model training/testing now.')

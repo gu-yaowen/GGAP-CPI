@@ -7,12 +7,10 @@
 *.sbatch
 # *.sh
 *.out
-*.csv
+# *.csv
 *.sbatch
 
 # Ignore a specific directory
-data/
-exp_results/
 result/
 runs/
 Feature/
