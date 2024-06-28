@@ -57,10 +57,10 @@ Available training dataset includes: **CPI2M-main** (noted as 'ki', 'kd', 'ec50'
 Please run the following command for model training: 
 
 ```
-sh run_bash/run_CPI.sh KANO_Prot {DATA_NAME} {SEED} train
+sh run_bash/run_CPI.sh KANO_Prot {DATA_NAME} train {SEED}
 ```
 
-parameters include: 1. training dataset; 2. random seed; 3. mode (e.g., train).
+parameters include: 1. training dataset; 2. mode (e.g., train); 3. random seed.
 
 ## Model Inference
 We provide pretrained GGAP-CPI model on **CPI2M-main** dataset with different activity type predictor(GGAP-CPI-pKi, -pKd, -pEC50, -pIC50, and -pAC). We generally recommand you to use **GGAP-CPI-pKi**, **GGAP-CPI-pIC50** or **GGAP-CPI-pAC** (AC means pretrained on "integrated" activity data) for inferencing on your own data. 
@@ -70,10 +70,10 @@ Available inference dataset includes: **CPI2M-few** ('ki_last', 'kd_last', 'ec50
 Taking GGAP-CPI-pIC50 for example, please run the following command for model inference on MoleculeACE-pEC50 dataset:
 
 ```
-sh run_bash/run_CPI.sh KANO_Prot MolACE_CPI_ec50 {SEED} inference ic50/2
+sh run_bash/run_CPI.sh KANO_Prot MolACE_CPI_ec50 inference {SEED} ic50/2
 ```
 
-parameters include: 1. inference dataset; 2. random seed; 3. mode (e.g., inference, finetune); 4. pretrained model path (only for KANO_Prot);
+parameters include: 1. inference dataset; 2. mode (e.g., inference, finetune); 3. random seed; 4. pretrained model path (only for KANO_Prot);
 
 ## Benchmark Results
 The performances of GGAP-CPI and 19 baseline methods are evaluated on CPI2M-main, CPI2M-few, MoleculeACE, CASF-2016, and LIT-PCBA datasets. For your convience, 
@@ -88,7 +88,7 @@ To train GGAP-CPI and other baseline models on your own **.CSV** data, which sho
 # preprocess data
 python process_data.py --dataset {DATA} --task {CPI or QSAR} --split {random or ac} --train_ratio {RATIO} --seed {SEED}
 # train
-sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} {SEED} train
+sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} train {SEED}
 # optional: finetune, inference, ...
 ```
 

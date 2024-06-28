@@ -1,0 +1,128 @@
+2024-06-27 21:15:53,848 - INFO - current task: qi_fgfr_time_v2
+2024-06-27 21:15:53,848 - INFO - arguments: Namespace(ablation='none', activation='ReLU', atom_messages=False, baseline_model=None, batch_size=64, bias=False, checkpoint_path='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl', cuda=True, data_name='qi_fgfr_time_v2', data_path='data/qi_fgfr_time_v2.csv', dataset_type='classification', depth=3, dropout=0.0, encoder_name='CMPNN', endpoint_type='qi_fgfr_time_v2.csv', epochs=100, features_generator=None, features_only=False, features_path=None, features_scaling=False, ffn_hidden_size=300, ffn_num_layers=2, final_lr=0.0001, gpu=0, hidden_size=300, init_lr=0.0001, loss_func_wt={'MSE': '1', 'CLS': '0', 'CL': '0'}, loss_weights='1 0 0', lr=0.0001, max_data_size=None, max_lr=0.001, metric='auc', minimize_score=False, mode='inference', model_path='exp_results/KANO_Prot/.', no_cuda=False, no_features_scaling=False, num_heads=5, num_lrs=1, num_runs=1, num_tasks=1, output_size=1, pooling='cross_attn', print=True, ref_path='data/..csv', save_best_model_path='exp_results/KANO_Prot/./KANO_Prot_best_model.pt', save_path='exp_results/KANO_Prot/.', save_pred_path='exp_results/KANO_Prot/./qi_fgfr_time_v2_test_pred_infer.csv', seed=1, siams_num=1, smiles_columns='smiles', split_sizes=[0.8, 0.0, 0.2], split_type='moleculeACE', step='functional_prompt', target_columns='y', temperature=0.1, train_model='KANO_Prot', undirected=False, use_input_features=None, warmup_epochs=2)
+2024-06-27 21:15:53,849 - INFO - random seed: 1
+2024-06-27 21:15:53,849 - INFO - save path: exp_results/KANO_Prot/.
+2024-06-27 21:15:53,849 - INFO - device: cuda:0
+2024-06-27 21:15:53,940 - INFO - Loading data from data/qi_fgfr_time_v2.csv
+2024-06-27 21:15:53,943 - INFO - total size: 18851, train size: 7297, val size: 0, test size: 11554
+2024-06-27 21:17:43,314 - INFO - current task: qi_fgfr_time_v2
+2024-06-27 21:17:43,314 - INFO - arguments: Namespace(ablation='none', activation='ReLU', atom_messages=False, baseline_model=None, batch_size=64, bias=False, checkpoint_path='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl', cuda=True, data_name='qi_fgfr_time_v2', data_path='data/qi_fgfr_time_v2.csv', dataset_type='classification', depth=3, dropout=0.0, encoder_name='CMPNN', endpoint_type='qi_fgfr_time_v2.csv', epochs=100, features_generator=None, features_only=False, features_path=None, features_scaling=False, ffn_hidden_size=300, ffn_num_layers=2, final_lr=0.0001, gpu=0, hidden_size=300, init_lr=0.0001, loss_func_wt={'MSE': '1', 'CLS': '0', 'CL': '0'}, loss_weights='1 0 0', lr=0.0001, max_data_size=None, max_lr=0.001, metric='auc', minimize_score=False, mode='inference', model_path='exp_results/KANO_Prot/.', no_cuda=False, no_features_scaling=False, num_heads=5, num_lrs=1, num_runs=1, num_tasks=1, output_size=1, pooling='cross_attn', print=True, ref_path='data/..csv', save_best_model_path='exp_results/KANO_Prot/./KANO_Prot_best_model.pt', save_path='exp_results/KANO_Prot/.', save_pred_path='exp_results/KANO_Prot/./qi_fgfr_time_v2_test_pred_infer.csv', seed=1, siams_num=1, smiles_columns='smiles', split_sizes=[0.8, 0.0, 0.2], split_type='moleculeACE', step='functional_prompt', target_columns='y', temperature=0.1, train_model='KANO_Prot', undirected=False, use_input_features=None, warmup_epochs=2)
+2024-06-27 21:17:43,315 - INFO - random seed: 1
+2024-06-27 21:17:43,315 - INFO - save path: exp_results/KANO_Prot/.
+2024-06-27 21:17:43,315 - INFO - device: cuda:0
+2024-06-27 21:17:43,406 - INFO - Loading data from data/qi_fgfr_time_v2.csv
+2024-06-27 21:17:43,409 - INFO - total size: 18851, train size: 7297, val size: 0, test size: 11554
+2024-06-27 21:18:44,810 - INFO - current task: qi_fgfr_time_v2
+2024-06-27 21:18:44,811 - INFO - arguments: Namespace(ablation='none', activation='ReLU', atom_messages=False, baseline_model=None, batch_size=64, bias=False, checkpoint_path='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl', cuda=True, data_name='qi_fgfr_time_v2', data_path='data/qi_fgfr_time_v2.csv', dataset_type='classification', depth=3, dropout=0.0, encoder_name='CMPNN', endpoint_type='qi_fgfr_time_v2.csv', epochs=100, features_generator=None, features_only=False, features_path=None, features_scaling=False, ffn_hidden_size=300, ffn_num_layers=2, final_lr=0.0001, gpu=0, hidden_size=300, init_lr=0.0001, loss_func_wt={'MSE': '1', 'CLS': '0', 'CL': '0'}, loss_weights='1 0 0', lr=0.0001, max_data_size=None, max_lr=0.001, metric='auc', minimize_score=False, mode='inference', model_path='exp_results/KANO_Prot/.', no_cuda=False, no_features_scaling=False, num_heads=5, num_lrs=1, num_runs=1, num_tasks=1, output_size=1, pooling='cross_attn', print=True, ref_path='data/..csv', save_best_model_path='exp_results/KANO_Prot/./KANO_Prot_best_model.pt', save_path='exp_results/KANO_Prot/.', save_pred_path='exp_results/KANO_Prot/./qi_fgfr_time_v2_test_pred_infer.csv', seed=1, siams_num=1, smiles_columns='smiles', split_sizes=[0.8, 0.0, 0.2], split_type='moleculeACE', step='functional_prompt', target_columns='y', temperature=0.1, train_model='KANO_Prot', undirected=False, use_input_features=None, warmup_epochs=2)
+2024-06-27 21:18:44,813 - INFO - random seed: 1
+2024-06-27 21:18:44,813 - INFO - save path: exp_results/KANO_Prot/.
+2024-06-27 21:18:44,813 - INFO - device: cuda:0
+2024-06-27 21:18:44,905 - INFO - Loading data from data/qi_fgfr_time_v2.csv
+2024-06-27 21:18:44,908 - INFO - total size: 18851, train size: 7297, val size: 0, test size: 11554
+2024-06-27 21:18:53,674 - INFO - load KANO pretrained model
+2024-06-27 21:18:53,675 - INFO - model: KANO_Prot(
+  (sigmoid): Sigmoid()
+  (molecule_encoder): MoleculeModel(
+    (sigmoid): Sigmoid()
+    (encoder): CMPN(
+      (encoder): CMPNEncoder(
+        (dropout_layer): Dropout(p=0.0, inplace=False)
+        (act_func): ReLU()
+        (W_i_atom): PromptGeneratorOutput(
+          (self_out): Linear(in_features=133, out_features=300, bias=False)
+          (prompt_generator): Prompt_generator(
+            (linear): Linear(in_features=133, out_features=300, bias=True)
+            (attention_layer_1): AttentionLayer(
+              (w_q): Linear(in_features=133, out_features=32, bias=True)
+              (w_k): Linear(in_features=133, out_features=32, bias=True)
+              (w_v): Linear(in_features=133, out_features=32, bias=True)
+              (dense): Linear(in_features=32, out_features=133, bias=True)
+              (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+              (dropout): Dropout(p=0.1, inplace=False)
+            )
+            (attention_layer_2): AttentionLayer(
+              (w_q): Linear(in_features=133, out_features=32, bias=True)
+              (w_k): Linear(in_features=133, out_features=32, bias=True)
+              (w_v): Linear(in_features=133, out_features=32, bias=True)
+              (dense): Linear(in_features=32, out_features=133, bias=True)
+              (LayerNorm): LayerNorm((133,), eps=1e-06, elementwise_affine=True)
+              (dropout): Dropout(p=0.1, inplace=False)
+            )
+            (norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+        (W_i_bond): Linear(in_features=147, out_features=300, bias=False)
+        (W_h_atom): Linear(in_features=447, out_features=300, bias=False)
+        (W_h_0): Linear(in_features=300, out_features=300, bias=False)
+        (W_h_1): Linear(in_features=300, out_features=300, bias=False)
+        (W_o): Linear(in_features=600, out_features=300, bias=True)
+        (gru): BatchGRU(
+          (gru): GRU(300, 300, batch_first=True, bidirectional=True)
+        )
+        (lr): Linear(in_features=900, out_features=300, bias=False)
+        (W_i_atom_new): Linear(in_features=266, out_features=300, bias=False)
+      )
+    )
+    (ffn): Sequential(
+      (0): Dropout(p=0.0, inplace=False)
+      (1): Linear(in_features=900, out_features=300, bias=True)
+      (2): ReLU()
+      (3): Dropout(p=0.0, inplace=False)
+      (4): Linear(in_features=300, out_features=1, bias=True)
+    )
+  )
+  (protein_encoder): ProteinEncoder(
+    (gcn): ModuleList(
+      (0): GCNConv(1280, 300)
+    )
+    (drop1): Dropout(p=0.0, inplace=False)
+  )
+  (cross_attn_pooling): MultiHeadCrossAttentionPooling(
+    (query_linear): Linear(in_features=300, out_features=300, bias=True)
+    (key_linear): Linear(in_features=300, out_features=300, bias=True)
+    (value_linear): Linear(in_features=300, out_features=300, bias=True)
+    (dropout): Dropout(p=0.0, inplace=False)
+    (ffn_norm): LayerNorm((300,), eps=1e-05, elementwise_affine=True)
+    (out_linear): FeedForwardNetwork(
+      (layer1): Linear(in_features=300, out_features=300, bias=True)
+      (relu): ReLU(inplace=True)
+      (layer2): Linear(in_features=300, out_features=300, bias=True)
+    )
+    (self_attention_dropout): Dropout(p=0.0, inplace=False)
+  )
+)
+2024-06-27 21:18:53,676 - INFO - optimizer: Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: False
+    lr: 0.0001
+    maximize: False
+    weight_decay: 0
+
+Parameter Group 1
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: False
+    lr: 0.0005
+    maximize: False
+    weight_decay: 0
+)
+2024-06-27 21:18:53,676 - INFO - scheduler: <chemprop.nn_utils.NoamLR object at 0x7f8841fe9ac0>
+2024-06-27 21:18:53,677 - INFO - loss function: CompositeLoss(
+  (mse_loss): MSELoss()
+  (bce_loss): BCEWithLogitsLoss()
+), loss weights: {'MSE': '1', 'CLS': '0', 'CL': '0'}
+2024-06-27 21:18:53,677 - INFO - metric function: ['auc', 'prc-auc', 'accuracy', 'cross_entropy']
+2024-06-27 21:18:53,950 - INFO - load model from exp_results/KANO_Prot/./KANO_Prot_best_model.pt for inference
+2024-06-27 21:18:53,962 - INFO - loading protein features...
+2024-06-27 21:22:02,236 - INFO - Prediction saved in exp_results/KANO_Prot/./qi_fgfr_time_v2_test_pred_infer.csv
+2024-06-27 21:22:02,238 - INFO - Prediction saved, RMSE: 0.5364, RMSE_cliff: nan

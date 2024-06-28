@@ -21,3 +21,6 @@ __pycache__/
 # Ignore all .txt files in a specific directory
 */__pycache__/
 
+data/qi_fgfr_time_v2.csv
+
+exp_results/KANO_Prot/qi_fgfr_time_v2/

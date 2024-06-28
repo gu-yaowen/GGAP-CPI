@@ -373,9 +373,12 @@ def predict_main(args):
         test_data = [data[i] for i in test_idx]
         test_data = MoleculeDataset(test_data)
         args.batch_size = 256
-        ref_df = pd.read_csv(args.ref_path)
-        ref_y = ref_df['y'].values
-        scaler = StandardScaler().fit(ref_y)
+        if args.dataset_type == 'regression':
+            ref_df = pd.read_csv(args.ref_path)
+            ref_y = ref_df['y'].values
+            scaler = StandardScaler().fit(ref_y)
+        else:
+            scaler = None
         args.train_data_size = len(test_data)
         args, model, optimizer, scheduler, loss_func = set_up_model(args, logger)
 
