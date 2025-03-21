@@ -1,7 +1,7 @@
 # Overview
 ![Views](https://komarev.com/ghpvc/?username=gu-yaowen&label=GGAP-CPI%20views&color=0e75b6&style=flat)
 
-This project is based on our paper "Mitigating Activity Cliff-induced Discrepancies in Deep Learning of Compound-Protein Interaction Affinity Prediction". GGAP-CPI stands for **protein Graph and ligand Graph network with Attention Pooling for Compound-Protein Interaction prediction**.
+This project is based on our paper "Complex structure-free compound-protein interaction prediction for mitigating activity cliff-induced discrepancies and integrated bioactivity learning". GGAP-CPI stands for **protein Graph and ligand Graph network with Attention Pooling for Compound-Protein Interaction prediction**.
 
 ## Table of Contents
 
