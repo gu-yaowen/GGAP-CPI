@@ -5,15 +5,15 @@ This project is based on our paper "Complex structure-free compound-protein inte
 
 ## 📖 Table of Contents
 
-- [🎯 Introduction](##🎯-Introduction)  
-- [🗄️ Dataset](#🗄️-Dataset)  
-- [📦 Dependencies](#📦-Dependencies)  
-- [🏋️‍♂️ Model Training](#🏋️‍♂️-Model-Training)  
-- [🔄 Model Fine‑tuning](#🔄-Model-Finetuning)  
-- [🔍 Model Inference](#🔍-Model-Inference)  
-- [📊 Benchmark Results](#📊-Benchmark-Results)  
-- [🛠️ Use Your Own Data](#🛠️-Use-Your-Own-Data)  
-- [📢 Citation](#📢-Citation)
+- [🎯 Introduction](#🎯-introduction)  
+- [🗄️ Dataset](#🗄️-dataset)  
+- [📦 Dependencies](#📦-dependencies)  
+- [🏋️‍♂️ Model Training](#🏋️‍♂️-model-training)  
+- [🔄 Model Fine‑tuning](#🔄-model-fine‑tuning)  
+- [🔍 Model Inference](#🔍-model-inference)  
+- [📊 Benchmark Results](#📊-benchmark-results)  
+- [🛠️ Use Your Own Data](#🛠️-use-your-own-data)  
+- [📢 Citation](#📢-citation)
 
 
 ## 🎯 Introduction
