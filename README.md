@@ -5,7 +5,7 @@ This project is based on our paper "Complex structure-free compound-protein inte
 
 ## 📖 Table of Contents
 
-- [🎯 Introduction](#🎯-Introduction)  
+- [🎯 Introduction](##🎯-Introduction)  
 - [🗄️ Dataset](#🗄️-Dataset)  
 - [📦 Dependencies](#📦-Dependencies)  
 - [🏋️‍♂️ Model Training](#🏋️‍♂️-Model-Training)  
