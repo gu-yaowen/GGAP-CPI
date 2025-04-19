@@ -1,5 +1,7 @@
 import os
+import h5py
 import torch
+import pickle
 import numpy as np
 from tqdm import tqdm
 from rdkit import Chem
@@ -16,28 +18,31 @@ from graphein.protein.edges.distance import (add_peptide_bonds,
                                              add_cation_pi_interactions
                                             )
 from chemprop.nn_utils import initialize_weights
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 from utils import get_metric_func
-from model.models import KANO_Prot, KANO_ESM, KANO_Prot_ablation
+from model.models import GGAP_CPI, GGAP_CPI_joint, KANO_ESM, GGAP_CPI_ablation
 from model.loss import CompositeLoss
-from KANO_model.model import add_functional_prompt
-from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func
-
+from KANO_model.utils import build_optimizer, build_lr_scheduler, build_loss_func, MolGraph
 
 def set_up_model(args, logger):
     assert args.mode in ['train', 'retrain', 'finetune', 'inference', 'baseline_inference']
     if args.ablation == 'none':
-        if args.train_model == 'KANO_Prot':
-            model = KANO_Prot(args,
+        if args.train_model == 'GGAP_CPI' and args.dataset_type != 'joint':
+            model = GGAP_CPI(args,
                             classification=True, multiclass=False,
                             multitask=False, prompt=True).to(args.device)
+        elif args.dataset_type == 'joint':
+            model = GGAP_CPI_joint(args,
+                            classification=True, multiclass=False,
+                            multitask=True, prompt=True).to(args.device)
         elif args.train_model == 'KANO_ESM':
             model = KANO_ESM(args, 
                             classification=True, multiclass=False, 
                             multitask=False, prompt=True).to(args.device)
         initialize_weights(model)
     else:
-        model = KANO_Prot_ablation(args, 
+        model = GGAP_CPI_ablation(args, 
                                    classification=True, multiclass=False,
                                    multitask=False, prompt=True).to(args.device)
 
@@ -64,8 +69,19 @@ def set_up_model(args, logger):
     args.previous_epoch = 0
     
     if args.mode == 'finetune':
-        model.load_state_dict(torch.load(os.path.join(args.model_path,
-                                        f'{args.train_model}_best_model.pt'), map_location='cpu')['state_dict'])
+        pretrained_dict = torch.load(os.path.join(args.model_path,
+                                                f"{args.train_model}_best_model.pt"),
+                                    map_location="cpu")["state_dict"]
+        model_dict = model.state_dict()
+        filtered_dict = {}
+        for k, v in pretrained_dict.items():
+            if k in model_dict and model_dict[k].shape == v.shape:
+                filtered_dict[k] = v
+        model_dict.update(filtered_dict)
+        model.load_state_dict(model_dict)
+        
+        # model.load_state_dict(torch.load(os.path.join(args.model_path,
+        #                                 f'{args.train_model}_best_model.pt'), map_location='cpu')['state_dict'])
         logger.info(f'load model from {args.model_path} for finetuning') if args.print else None
     elif args.mode == 'retrain':
         try:
@@ -79,9 +95,16 @@ def set_up_model(args, logger):
         logger.info(f'load optimizer from {args.save_model_path} for retraining') if args.print else None
         args.previous_epoch = pre_file['epoch']
         logger.info(f'retrain from epoch {args.previous_epoch}, { args.epochs - args.previous_epoch} lasting') if args.print else None
+        scheduler.load_state_dict(pre_file['scheduler'])
+        logger.info(f'load scheduler from {args.save_model_path} for retraining') if args.print else None
     elif args.mode in ['inference', 'baseline_infernce']:
         model.cpu()
-        model.load_state_dict(torch.load(args.save_best_model_path, map_location='cpu')['state_dict'])
+        try:
+            pre_file = torch.load(args.save_best_model_path, map_location='cpu')
+        except:
+            pre_file = torch.load(args.save_best_model_path.split('.')[0] + '_ft.pt', map_location='cpu')
+
+        model.load_state_dict(pre_file['state_dict'])
         model.to(args.device)
         logger.info(f'load model from {args.save_best_model_path} for inference') if args.print else None
     
@@ -193,3 +216,100 @@ def calculate_topk_similarity(smiles_list1, smiles_list2, top_k=1):
     # return indexs with topN similarity
     topk_indices = np.argsort(-similarity_matrix, axis=1)[:, :top_k]
     return topk_indices, similarity_matrix
+
+
+def generate_label(label, data_category, args=None):
+    if isinstance(label, torch.Tensor):
+        label = label.cpu().numpy().flatten()
+
+    # for regression label: only consider pKi and pKd data
+    if args.mode != 'inference':
+        reg_label = [label[i] if data_category[i] <= args.type_thre else 999 for i in range(len(label))]
+    else:
+        reg_label = [label[i] for i in range(len(label))]
+    # for classification label: 
+        # strong binder/biner/weak binder: onely consider affinity data (pKi, pKd, pIC50, pEC50, pPotency)
+        # non-binder: consider all data 
+    if args.dataset_type == 'joint':
+        cls_label = [[0] if (label[i] <= 6) and data_category[i] <= 5 else \
+                    [1] if (label[i] > 6) and data_category[i] <= 5 else \
+                    [999] for i in range(len(label))]
+    else:
+        cls_label = [[999, 999, 999, 999] for i in range(len(label))]
+    return reg_label, cls_label
+
+
+def calc_multiclass(pred, label, func):
+    """
+    Calculate AUC, AUPR, and Acc for a multiclassification task.
+    """
+    # Ensure inputs are numpy arrays
+    if not isinstance(pred, np.ndarray):
+        pred = np.array(pred)
+    if not isinstance(label, np.ndarray):
+        label = np.array(label)
+    
+    # Number of classes
+    num_classes = pred.shape[1]
+    
+    # Store results
+    auc_scores = {}
+    aupr_scores = {}
+
+    # Calculate per-class AUC and AUPR
+    for i in range(num_classes):
+        # True labels and predicted scores for class `i`
+        true_labels = label[:, i]
+        pred_scores = pred[:, i]
+
+        # Ensure no NaNs in true_labels
+        if np.isnan(true_labels).any():
+            raise ValueError(f"NaN detected in true labels for class {i}")
+
+        # AUC and AUPR for current class
+        try:
+            auc = roc_auc_score(true_labels, pred_scores)
+            aupr = average_precision_score(true_labels, pred_scores)
+        except ValueError as e:
+            # Handle cases where AUC/AUPR cannot be calculated (e.g., all labels are 0 or 1)
+            auc = np.nan
+            aupr = np.nan
+
+        auc_scores[f'class_{i}'] = auc
+        aupr_scores[f'class_{i}'] = aupr
+
+    # Calculate macro-average metrics
+    macro_auc = np.nanmean(list(auc_scores.values()))
+    macro_aupr = np.nanmean(list(aupr_scores.values()))
+
+    # calculate accuracy
+    pred_labels = np.argmax(pred, axis=1)
+    true_labels = np.argmax(label, axis=1)
+    acc = np.mean(pred_labels == true_labels)
+    return dict(zip(func, [[macro_auc], [macro_aupr], [acc]]))
+
+
+def calc_binaryclass(pred, label, func):
+    """
+    Calculate AUC, AUPR, and Acc for a binary classification task.
+    pred: 1D array-like of predicted probabilities for the positive class.
+    label: 1D array-like of ground truth labels (0 or 1).
+    func: A list/tuple indicating the metric names for the output (e.g., ["AUC","AUPR","ACC"]).
+    """
+    if not isinstance(pred, np.ndarray):
+        pred = np.array(pred)
+    if not isinstance(label, np.ndarray):
+        label = np.array(label)
+    if np.isnan(label).any():
+        raise ValueError("NaN detected in true labels.")
+    try:
+        auc = roc_auc_score(label, pred)
+    except ValueError:
+        auc = np.nan
+    try:
+        aupr = average_precision_score(label, pred)
+    except ValueError:
+        aupr = np.nan
+    pred_binary = (pred >= 0.5).astype(int)
+    acc = np.mean(pred_binary == label)
+    return dict(zip(func, [[auc], [aupr], [acc]]))

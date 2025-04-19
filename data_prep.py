@@ -1,15 +1,3 @@
-"""
-Author: Yaowen Gu -- NYU -- 17-10-2023
-
-A collection of data-prepping functions
-    - split_data():             split ChEMBL csv into train/test taking similarity and cliffs into account. If you want
-                                to process your own data, use this function
-    - process_data():           see split_data()
-    - load_data():              load a pre-processed dataset from the benchmark
-    - fetch_data():             download molecular bioactivity data from ChEMBL for a specific drug target
-
-"""
-
 import os
 import pickle
 from MoleculeACE.benchmark.cliffs import ActivityCliffs, get_tanimoto_matrix, \
@@ -24,7 +12,7 @@ import random
 import torch
 from tqdm import tqdm
 from chemprop.data.utils import get_data, get_task_names
-from utils import check_molecule, chembl_to_uniprot, get_protein_sequence, \
+from utils import check_molecule, get_protein_sequence, \
                   get_molecule_feature, get_protein_feature, generate_onehot_features
 from DeepPurpose.utils import encode_drug, encode_protein
 from rdkit import Chem
@@ -33,7 +21,7 @@ import networkx as nx
 from torch.utils import data
 from torch_geometric.data import DataLoader
 from CPI_baseline.utils import TestbedDataset, MolTrans_Data_Encoder
-    
+
 
 def process_data_CPI(args, logger):
     args.smiles_columns = ['smiles']
@@ -75,8 +63,8 @@ def process_data_CPI(args, logger):
             # protein ID mapping and sequence retrieval
             logger.info('Mapping ChEMBL IDs to UniProt IDs...')
 
-        chembl_uni = dict(zip(chembl_list,
-                            [chembl_to_uniprot(chembl_id) for chembl_id in chembl_list]))
+        # chembl_uni = dict(zip(chembl_list,
+        #                     [chembl_to_uniprot(chembl_id) for chembl_id in chembl_list]))
         if args.print:
             logger.info('Getting target sequences...')
 
@@ -100,27 +88,34 @@ def process_data_CPI(args, logger):
     y = df_data['y'].values
     train_idx, test_idx = list(df_data[df_data['split'].values == 'train'].index), \
                         list(df_data[df_data['split'].values == 'test'].index)
-    val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
-    train_idx = list(set(train_idx) - set(val_idx))
-    if args.print:
+    if args.mode in ['inference', 'baseline_inference']:
+        val_idx = []
+        logger.info(f'test size: {len(test_idx)}') if args.print else None
+    else:
+    # else:
+        if 'valid' in df_data['split'].values:
+            val_idx = list(df_data[df_data['split'].values == 'valid'].index)
+        else:
+            val_idx = random.sample(list(train_idx), int(len(train_idx) * valid_ratio))
+            df_data.loc[val_idx, 'split'] = 'valid'
+    # train_idx = list(set(train_idx) - set(val_idx))
+        
         logger.info(f'total size: {len(df_data)}, train size: {len(train_idx)}, '
-                    f'val size: {len(val_idx)}, test size: {len(test_idx)}')
+                    f'val size: {len(val_idx)}, test size: {len(test_idx)}') if args.print else None
 
     if args.mode in ['train', 'inference', 'retrain', 'finetune'] \
-        and args.train_model in ['KANO_Prot', 'KANO_ESM']:
+        and args.train_model in ['GGAP_CPI', 'KANO_ESM']:
         # get data from csv file
         args.task_names = get_task_names(args.data_path, args.smiles_columns,
                                         args.target_columns, args.ignore_columns)
+        if 'type_id' not in df_data.columns:
+            df_data['type_id'] = 1
+            df_data.to_csv(args.data_path, index=False)
+            logger.info('Adding dummy type_id column to the dataset...')
         data = get_data(path=args.data_path, 
-                        smiles_columns=args.smiles_columns,
-                        target_columns=args.target_columns,
-                        ignore_columns=args.ignore_columns)
-        
-        # split data by MoleculeACE
-        if args.split_sizes:
-            train_idx, test_idx = df_data[df_data['split']=='train'].index, df_data[df_data['split']=='test'].index
-            val_idx = random.sample(list(train_idx), int(len(df_data) * valid_ratio))
-            train_idx = list(set(train_idx) - set(val_idx))
+                smiles_columns=args.smiles_columns,
+                target_columns=args.target_columns,
+                ignore_columns=args.ignore_columns)
         train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
                                             [data[i] for i in val_idx] if len(val_idx) > 0 else [],
                                             [data[i] for i in test_idx]])
@@ -348,7 +343,6 @@ def process_data_CPI(args, logger):
             test_feat = []
     return df_data, test_idx, train_data, val_data, test_data
 
-
 def process_data_QSAR(args, logger):
     # check the validity of SMILES
     df = pd.read_csv(args.data_path)
@@ -383,7 +377,10 @@ def process_data_QSAR(args, logger):
     # split data by MoleculeACE
     if args.split_sizes:
         train_idx, test_idx = df[df['split']=='train'].index, df[df['split']=='test'].index
-        val_idx = random.sample(list(train_idx), int(len(df) * valid_ratio))
+        if 'valid' in df['split'].values:
+            val_idx = df[df['split']=='valid'].index
+        else:
+            val_idx = random.sample(list(train_idx), int(len(train_idx) * valid_ratio))
         train_idx = list(set(train_idx) - set(val_idx))
     train_data, val_data, test_data = tuple([[data[i] for i in train_idx],
                                         [data[i] for i in val_idx],
@@ -396,7 +393,6 @@ def process_data_QSAR(args, logger):
                     f'val size: {len(val_data)}, test size: {len(test_data)}')
         
     return df, test_idx, train_data, val_data, test_data
-
 
 def split_data(smiles: List[str], bioactivity: List[float], n_clusters: int = 5,
                in_log10 = True, test_size: float = 0.2, random_state: int = 0,

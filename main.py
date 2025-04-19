@@ -14,9 +14,10 @@ from args import add_args
 from data_prep import process_data_QSAR, process_data_CPI
 from utils import set_save_path, set_seed, set_collect_metric, \
                   collect_metric_epoch, save_checkpoint, \
-                  define_logging, set_up, get_protein_feature
+                  define_logging, set_up, get_protein_feature, get_ligand_feature
 from model.train_val import retrain_scheduler, train_epoch, evaluate_epoch, predict_epoch
-from model.utils import generate_siamse_smi, set_up_model
+                #   train_epoch_chunkwise, predict_epoch_chunkwise
+from model.utils import generate_siamse_smi, set_up_model, generate_label
 
 
 def run_CPI(args):
@@ -25,15 +26,21 @@ def run_CPI(args):
     df_all, test_idx, train_data, val_data, test_data = process_data_CPI(args, logger)
 
     data = get_data(path=args.data_path, 
-                    smiles_columns=args.smiles_columns,
-                    target_columns=args.target_columns,
-                    ignore_columns=args.ignore_columns)
+                smiles_columns=args.smiles_columns,
+                target_columns=args.target_columns,
+                ignore_columns=args.ignore_columns)
 
     if args.split_sizes:
         _, valid_ratio, test_ratio = args.split_sizes
         train_idx, test_idx = df_all[df_all['split']=='train'].index, df_all[df_all['split']=='test'].index
-        val_idx = random.sample(list(train_idx), int(len(df_all) * valid_ratio))
-        train_idx = list(set(train_idx) - set(val_idx))
+        if 'valid' in df_all['split'].unique():
+            val_idx = df_all[df_all['split']=='valid'].index
+        else:
+            val_idx = random.sample(list(train_idx), int(len(train_idx) * valid_ratio))
+            # train_idx = list(set(train_idx) - set(val_idx))
+
+    type_id = df_all['type_id'].values
+    train_id, val_id, test_id = type_id[train_idx], type_id[val_idx], type_id[test_idx]
 
     train_prot, val_prot, test_prot = df_all.loc[train_idx, 'Uniprot_id'].values, \
                                       df_all.loc[val_idx, 'Uniprot_id'].values, \
@@ -46,8 +53,8 @@ def run_CPI(args):
                                       MoleculeDataset(val_data), \
                                       MoleculeDataset(test_data)
 
-    if len(train_data) * args.siams_num <= args.batch_size:
-        args.batch_size = 64
+    if len(train_data) <= args.batch_size:
+        # args.batch_size = 64
         logger.info(f'batch size is too large, reset to {args.batch_size}') if args.print else None
 
     if args.features_scaling:
@@ -57,105 +64,124 @@ def run_CPI(args):
     else:
         features_scaler = None
 
-    if args.dataset_type == 'regression':
-        _, train_targets = train_data.smiles(), train_data.targets()
-        scaler = StandardScaler().fit(train_targets)
-        scaled_targets = scaler.transform(train_targets).tolist()
-        train_data.set_targets(scaled_targets)
-    else:
-        # get class sizes for classification
-        # get_class_sizes(data)
-        scaler = None
-    
-    # load model, optimizer, scheduler, loss function
+    if args.dataset_type == 'classification':
+        pos_weight = len(df_all[df_all['split']=='train']['y']) / \
+                     df_all[df_all['split']=='train']['y'].sum()
+        args.pos_weight = pos_weight
+        logger.info(f'positive weight: {pos_weight}') if args.print else None     
+        args.scaler = None
+
     args.train_data_size = len(train_data)
-    args, model, optimizer, scheduler, loss_func = set_up_model(args, logger)
-
     n_iter = 0
-    metric_dict = set_collect_metric(args)
     best_score = float('inf') if args.minimize_score else -float('inf')
-
-    query_train, siams_train = [np.array(train_data.smiles()).flatten(), 
-                                np.array(train_data.targets()).flatten()], None
-    if len(val_data) > 0:
-        query_val, siams_val = [np.array(val_data.smiles()).flatten(), 
-                                np.array(val_data.targets()).flatten()], None
-    else:
-        query_val, siams_val = query_train, siams_train
-        val_prot = train_prot
-        # scaler = None
-    query_test, siams_test = [np.array(test_data.smiles()).flatten(),
-                                np.array(test_data.targets()).flatten()], None
-    
+    query_train = [np.array(train_data.smiles()).flatten(), 
+                   np.array(train_data.targets()), 
+                   train_id]
+    query_val = [np.array(val_data.smiles()).flatten(), 
+                np.array(val_data.targets()),
+                val_id]
+    query_test = [np.array(test_data.smiles()).flatten(),
+                  np.array(test_data.targets()),
+                  test_id]    
     # load protein features
-    if args.train_model in ['KANO_Prot', 'KANO_Prot_Siams', 'KANO_ESM']:
-        prot_graph_dict = get_protein_feature(args, logger, df_all)
-    else:
-        prot_graph_dict = None
+    prot_graph_dict = get_protein_feature(args, logger, df_all)
 
+    # load ligand features
+    lig_graph_dict = None
+    args.chunk_files = False
+    args.graph_input = True
+    # load model, optimizer, scheduler, loss function
+    args, model, optimizer, scheduler, loss_func = set_up_model(args, logger)
+    metric_dict = set_collect_metric(args)
+    
     # training
     logger.info(f'training...') if args.print else None
-    best_loss = 999 if args.dataset_type == 'regression' else -999
+    best_loss = 999 if args.dataset_type in ['regression', 'joint'] else -999
     if args.mode == 'retrain':
         logger.info(f'retraining...') if args.print else None
-        scheduler = retrain_scheduler(args, query_train, optimizer, scheduler, n_iter)
 
     for epoch in range(args.previous_epoch+1, args.epochs):
-    # for epoch in range(args.epochs-1, args.epochs):
-        n_iter, loss_collect = train_epoch(args, model, prot_graph_dict, query_train, train_prot, siams_train, 
+        args.epoch = epoch
+        n_iter, loss_collect = train_epoch(args, logger,
+                                           model, 
+                                           prot_graph_dict, lig_graph_dict, 
+                                           query_train, train_prot, 
                                            loss_func, optimizer, scheduler, n_iter)
         if isinstance(scheduler, ExponentialLR):
             scheduler.step()
-
-        val_scores = evaluate_epoch(args, model, prot_graph_dict, query_val, val_prot,
-                                    siams_val, scaler)
-
-        test_pred, _ = predict_epoch(args, model, prot_graph_dict, query_test, test_prot, siams_test, scaler)
-
-        test_scores = evaluate_predictions(test_pred, test_data.targets(),
-                                           args.num_tasks, args.metric_func, args.dataset_type)
+        if len(query_val[1]) > 0:
+            val_scores, _ = evaluate_epoch(args, 
+                                           model, 
+                                           prot_graph_dict, lig_graph_dict, 
+                                           query_val, val_prot, 
+                                           args.scaler)
+        else:
+            val_scores = metric_dict
+        if len(query_test[1]) > 0:
+            test_scores, _ = evaluate_epoch(args, 
+                                            model, 
+                                            prot_graph_dict, lig_graph_dict, 
+                                            query_test, test_prot, 
+                                            args.scaler)
+        else:
+            test_scores = val_scores
         if args.dataset_type == 'regression':
-            logger.info('Epoch : {:02d}, Loss_Total: {:.3f}, Loss_MSE: {:.3f}, Loss_CLS: {:.3f}, Loss_CL: {:.3f}, ' \
+            logger.info('Epoch : {:02d}, Loss_Total: {:.3f}, Loss_MSE: {:.3f}, ' \
                         'Validation score : {:.3f}, Test score : {:.3f}'.format(epoch, 
-                        loss_collect['Total'], loss_collect['MSE'], loss_collect['CLS'], loss_collect['CL'],
+                        loss_collect['Total'], loss_collect['MSE'],
                         list(val_scores.values())[0][0], list(test_scores.values())[0][0])) if args.print else None
         elif args.dataset_type == 'classification':
-            logger.info('Epoch : {:02d}, Loss_CLS: {:.3f}, Train AUC: {:.3f}, Train AUPR: {:.3f}, ' \
-                        'Validation AUC : {:.3f}, Validation AUPR: {:.3f}, ' \
-                        'Test AUC : {:.3f}, Test AUPR: {:.3f}'.format(epoch, 
-                        loss_collect['CrossEntropy'], loss_collect['AUC'], loss_collect['AUPR'],
-                        list(val_scores.values())[0][0], list(val_scores.values())[1][0],
-                        list(test_scores.values())[0][0], list(test_scores.values())[1][0])) if args.print else None
-        metric_dict = collect_metric_epoch(args, metric_dict, loss_collect, val_scores, test_scores)
-        
+            logger.info('Epoch : {:02d}, Loss_CLS: {:.3f}, Train ACC: {:.3f}, Train AUC: {:.3f}, Train AUPR: {:.3f}, ' \
+                        'Validation ACC: {:.3f}, Validation AUC : {:.3f}, Validation AUPR: {:.3f}, ' \
+                        'Test ACC: {:.3f}, Test AUC : {:.3f}, Test AUPR: {:.3f}'.format(epoch, 
+                        loss_collect['CrossEntropy'], loss_collect['ACC'], loss_collect['AUC'], loss_collect['AUPR'],
+                        list(val_scores.values())[0][0], list(val_scores.values())[1][0], list(val_scores.values())[2][0],
+                        list(test_scores.values())[0][0], list(test_scores.values())[1][0], list(test_scores.values())[2][0])) if args.print else None
+        elif args.dataset_type == 'joint':
+            logger.info('Epoch : {:02d}, Loss_Total: {:.3f}, Loss_MSE: {:.3f}, Loss_CLS: {:.3f}, ' \
+                        'Validation RMSE : {:.3f}, Validation Acc: {:.3f}, ' \
+                        'Test RMSE : {:.3f}, Test Acc: {:.3f}'.format(epoch, 
+                        loss_collect['Total'], loss_collect['MSE'], loss_collect['CrossEntropy'],
+                        list(val_scores.values())[0][0], list(val_scores.values())[-1][0],
+                        list(test_scores.values())[0][0], list(test_scores.values())[-1][0])) if args.print else None
+
         if epoch < args.epochs - 1:
             save_checkpoint(args.save_model_path, 
-                            model, scaler, features_scaler, epoch, optimizer, args)
+                            model, args.scaler, features_scaler, epoch, optimizer, scheduler, args)
         if args.dataset_type == 'regression':
             if loss_collect['MSE'] < best_loss or epoch == 0:
                 best_loss = loss_collect['MSE']
                 best_score, best_epoch = list(val_scores.values())[0][-1], epoch
                 best_test_score = list(test_scores.values())[0][-1]
                 save_checkpoint(args.save_best_model_path, 
-                                model, scaler, features_scaler, epoch, optimizer, args) 
+                                model, args.scaler, features_scaler, epoch, optimizer, scheduler, args) 
         elif args.dataset_type == 'classification':
             if loss_collect['AUC'] > best_loss or epoch == 0:
                 best_loss = loss_collect['AUC']
                 best_score, best_epoch = list(val_scores.values())[0][-1], epoch
                 best_test_score = list(test_scores.values())[0][-1]
                 save_checkpoint(args.save_best_model_path, 
-                                model, scaler, features_scaler, epoch, optimizer, args)
+                                model, args.scaler, features_scaler, epoch, optimizer, scheduler, args)
+        elif args.dataset_type == 'joint':
+            if loss_collect['Total'] < best_loss or epoch == 0:
+                best_loss = loss_collect['Total']
+                best_score, best_epoch = list(val_scores.values())[3][-1], epoch
+                best_test_score = list(test_scores.values())[3][-1]
+                save_checkpoint(args.save_best_model_path, 
+                                model, args.scaler, features_scaler, epoch, optimizer, scheduler, args)
         save_checkpoint(args.save_model_path.split('.')[0]+'_'+str(epoch)+'.pt', 
-                            model, scaler, features_scaler, epoch, optimizer, args)
+                        model, args.scaler, features_scaler, epoch, optimizer, scheduler, args)
     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
     # test the best model
     model.load_state_dict(torch.load(args.save_best_model_path)['state_dict'])
-    test_pred, _ = predict_epoch(args, model, prot_graph_dict, query_test, test_prot, siams_test, scaler, strategy='full')
-
-    # save results
-    pickle.dump(metric_dict, open(args.save_metric_path, 'wb'))
+    args.chunk_files = False
+    test_pred, _ = predict_epoch(args, 
+                                 model, 
+                                 prot_graph_dict, lig_graph_dict, 
+                                 query_test, test_prot, 
+                                 args.scaler)
 
     test_data_all = df_all[df_all['split']=='test']
 
@@ -164,8 +190,15 @@ def run_CPI(args):
         task = test_data_all['Chembl_id'].unique()
     else:
         task = test_data_all['Uniprot_id'].unique()
-    
-    test_data_all['Prediction'] = np.array(test_pred).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+    if args.dataset_type in ['classification', 'regression']:
+        test_data_all['Prediction'] = np.array(test_pred).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+    elif args.dataset_type == 'joint':
+        test_data_all['Prediction'] = np.array(test_pred[0]).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+        cls_pred = np.array(test_pred[1])[:len(test_data_all)] # n * 4
+        test_data_all['Prediction_StrongBinder'] = cls_pred[:, 0]
+        test_data_all['Prediction_Binder'] = cls_pred[:, 1]
+        test_data_all['Prediction_WeakBinder'] = cls_pred[:, 2]
+        test_data_all['Prediction_NonBinder'] = cls_pred[:, 3]
     test_data_all = test_data_all.rename(columns={'Label': 'y'})
     test_data_all.to_csv(args.save_pred_path, index=False)
     logger.info(f'Prediction saved in {args.save_pred_path}') if args.print else None
@@ -176,7 +209,7 @@ def run_CPI(args):
                                     cliff_mols_test=test_data_all['cliff_mol'].values)
         logger.info(f'Prediction saved, RMSE: {np.mean(rmse):.4f}, '
                         f'RMSE_cliff: {np.mean(rmse_cliff):.4f}') if args.print else None
-    elif args.dataset_type == 'classification':
+    else:
         logger.info('Prediction saved') if args.print else None
     logger.handlers.clear()      
     return
@@ -186,15 +219,10 @@ def run_baseline_QSAR(args):
     from MoleculeACE_baseline import load_MoleculeACE_model
 
     args, logger = set_up(args)
-    
-    # check in the current task is finished previously, if so, skip
-    if os.path.exists(args.save_pred_path):
-        if args.print:
-            logger.info(f'current task {args.data_name} for model {args.baseline_model} has been finished, skip...')
-        return
     logger.info(f'current task: {args.data_name}')
 
     if args.baseline_model == 'KANO':
+        args.graph_input = False
         from KANO_model.train_val import train_KANO
         train_KANO(args, logger)
         return
@@ -321,6 +349,7 @@ def run_baseline_CPI(args):
         _, test_pred = model.predict(test_data)
 
     elif args.baseline_model in ['ECFP_ESM_GBM', 'ECFP_ESM_RF', 'KANO_ESM_GBM', 'KANO_ESM_RF']:
+        args.graph_input = False
         from MoleculeACE_baseline import load_MoleculeACE_model
         mol_feat, prot_feat = args.baseline_model.split('_')[0], args.baseline_model.split('_')[1]
         args.baseline_model = args.baseline_model.split('_')[-1]
@@ -362,8 +391,8 @@ def run_baseline_CPI(args):
 
 def predict_main(args):
     args, logger = set_up(args)
-    df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
     if args.mode == 'inference':
+        df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
         data = get_data(path=args.data_path, 
                         smiles_columns=args.smiles_columns,
                         target_columns=args.target_columns,
@@ -376,24 +405,34 @@ def predict_main(args):
         if args.dataset_type == 'regression':
             ref_df = pd.read_csv(args.ref_path)
             ref_y = ref_df['y'].values
-            scaler = StandardScaler().fit(ref_y)
+            args.scaler = StandardScaler().fit(ref_y)
         else:
-            scaler = None
+            args.pos_weight = 0
+            args.scaler = None
         args.train_data_size = len(test_data)
+        
+        args.graph_input = True
+        lig_graph_dict = None
+        args.chunk_files = False
         args, model, optimizer, scheduler, loss_func = set_up_model(args, logger)
-
-        query_test, siams_test = [np.array(test_data.smiles()).flatten(),
-                                  np.array(test_data.targets()).flatten()], None
+    
+        if args.dataset_type == 'joint':
+            test_id = df_all['type_id'].values[test_idx]
+        query_test = [np.array(test_data.smiles()).flatten(),
+                np.array(test_data.targets()),
+                test_id if args.dataset_type == 'joint' else []]
         prot_graph_dict = get_protein_feature(args, logger, df_all)
+        # lig_graph_dict = get_ligand_feature(args, logger, df_all)
 
-        test_pred, _ = predict_epoch(args, model, prot_graph_dict,
-                                     query_test, test_prot, siams_test, scaler)
-        test_pred = np.array(test_pred).flatten()
+        args.chunk_files = False
+        test_pred, _ = predict_epoch(args, model, prot_graph_dict, lig_graph_dict,
+                                    query_test, test_prot, args.scaler)
         
     elif args.mode == 'baseline_inference':
         if args.baseline_model == 'DeepDTA':
             import DeepPurpose.DTI as models
             from DeepPurpose.utils import generate_config
+            df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
             drug_encoding = 'CNN'
             target_encoding = 'CNN'
             config = generate_config(drug_encoding = drug_encoding,
@@ -413,16 +452,20 @@ def predict_main(args):
 
         elif args.baseline_model == 'GraphDTA':
             from CPI_baseline.GraphDTA import GraphDTA
+            df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
             model = GraphDTA(args, logger)
             logger.info(f'predicting...') if args.print else None
             _, test_pred = model.predict(test_data)
             
         elif args.baseline_model == 'HyperAttentionDTI':
             from CPI_baseline.HyperAttentionDTI import HyperAttentionDTI
+            df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
             model = HyperAttentionDTI(args, logger)
             logger.info(f'predicting...') if args.print else None
             _, test_pred = model.predict(test_data)
         elif args.baseline_model in ['ECFP_ESM_GBM', 'ECFP_ESM_RF', 'KANO_ESM_GBM', 'KANO_ESM_RF']:
+            args.graph_input = False
+            df_all, test_idx, _, _, test_data = process_data_CPI(args, logger)
             from MoleculeACE_baseline import load_MoleculeACE_model
             mol_feat, prot_feat = args.baseline_model.split('_')[0], args.baseline_model.split('_')[1]
             args.baseline_model = args.baseline_model.split('_')[-1]
@@ -432,33 +475,40 @@ def predict_main(args):
             model = pickle.load(open(args.save_best_model_path, 'rb'))
             logger.info(f'predicting...') if args.print else None
             test_pred = model.predict(test_data[1])
+        elif args.baseline_model == 'KANO':
+            df_all, test_idx, _, _, test_data = process_data_QSAR(args, logger)
+            args.graph_input = False
+            from KANO_model.train_val import predict_KANO
+            test_pred = predict_KANO(args, logger, test_data)
+
+    test_data_all = df_all[df_all['split']=='test']
     
-    test_data_all = df_all[df_all['split']=='test'].iloc[:len(test_pred), :]
-    print(len(test_data_all), len(test_pred))
     if 'Chembl_id' in test_data_all.columns:
         test_data_all['Chembl_id'] = test_data_all['Chembl_id'].values
         task = test_data_all['Chembl_id'].unique()
     else:
         task = test_data_all['Uniprot_id'].unique()
-    test_data_all['Prediction'] = test_pred[:len(test_data_all)] # some baselines may have padding, delete the exceeds
+    if args.dataset_type in ['classification', 'regression']:
+        test_data_all['Prediction'] = np.array(test_pred).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+    elif args.dataset_type == 'joint': # currently only for GGAP-CPI
+        test_data_all['Prediction'] = np.array(test_pred[0]).flatten()[:len(test_data_all)] # some baseline may have padding, delete the exceeds
+        cls_pred = np.array(test_pred[1])[:len(test_data_all)] # n * 4
+        test_data_all['Prediction_StrongBinder'] = cls_pred[:, 0]
+        test_data_all['Prediction_Binder'] = cls_pred[:, 1]
+        test_data_all['Prediction_WeakBinder'] = cls_pred[:, 2]
+        test_data_all['Prediction_NonBinder'] = cls_pred[:, 3]
     test_data_all = test_data_all.rename(columns={'Label': 'y'})
     test_data_all.to_csv(args.save_pred_path, index=False)
     logger.info(f'Prediction saved in {args.save_pred_path}') if args.print else None
-    rmse = calc_rmse(test_data_all['y'].values, test_data_all['Prediction'].values)
-    rmse_cliff = calc_cliff_rmse(y_test_pred=test_data_all['Prediction'].values,
-                                        y_test=test_data_all['y'].values,
-                                    cliff_mols_test=test_data_all['cliff_mol'].values)
-    logger.info(f'Prediction saved, RMSE: {rmse:.4f}, '
-                    f'RMSE_cliff: {rmse_cliff:.4f}') if args.print else None
-    logger.handlers.clear() 
+    logger.handlers.clear()   
     return
 
-        
+
 if __name__ == '__main__':
     args = add_args()
 
     if args.mode in ['train', 'finetune', 'retrain']:
-        if args.train_model in ['KANO_Prot', 'KANO_ESM']:
+        if args.train_model in ['GGAP_CPI', 'KANO_ESM']:
             run_CPI(args)
 
     elif args.mode in ['inference', 'baseline_inference']:

@@ -86,7 +86,8 @@ elif [ "$mode" = "train" ]; then
                     --train_model $model \
                     --loss_weights "1 0 0" \
                     --batch_size 64 \
-                    --dropout 0.0 \
+                    --dropout 0.05 \
+                    --epochs 2 \
                     --ablation $ablation \
                     --print
 elif [ "$mode" = "retrain" ]; then
@@ -100,6 +101,7 @@ elif [ "$mode" = "retrain" ]; then
                         --model_path exp_results/$model/$filename/$seed \
                         --loss_weights "1 0 0" \
                         --batch_size 64 \
+                        --epochs 2 \
                         --dropout 0.0 \
                         --print
     else
@@ -111,8 +113,8 @@ elif [ "$mode" = "retrain" ]; then
                         --train_model $model \
                         --model_path exp_results/"$model"_"$ablation"/$filename/$seed \
                         --loss_weights "1 0 0" \
-                        --batch_size 64 \
-                        --dropout 0.0 \
+                        --batch_size 256 \
+                        --dropout 0.1 \
                         --ablation $ablation \
                         --print
     fi
@@ -126,20 +128,21 @@ elif [ "$mode" = "finetune" ]; then
                     --model_path exp_results/$model/$model_path \
                     --loss_weights "1 0 0" \
                     --batch_size 64 \
-                    --dropout 0.0 \
+                    --epochs 2 \
+                    --dropout 0.05 \
                     --print
 elif [ "$mode" = "inference" ]; then
     python main.py --gpu 0 \
                     --data_path data/${filename}.csv \
-                    --ref_path data/${model_path}.csv \
+                    --ref_path data/integrated_0.csv \
                     --mode $mode \
                     --dataset_type regression \
                     --seed $seed \
                     --train_model $model \
                     --model_path exp_results/"$model"/$model_path \
                     --loss_weights "1 0 0" \
-                    --batch_size 64 \
-                    --dropout 0.0 \
+                    --batch_size 256 \
+                    --dropout 0.05 \
                     --ablation $ablation \
                     --print
 else

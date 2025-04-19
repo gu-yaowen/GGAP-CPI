@@ -1,6 +1,7 @@
 import os
 import random
 from chemprop.data import MoleculeDataset
+import pandas as pd
 import torch
 import pickle
 from chemprop.nn_utils import NoamLR
@@ -66,7 +67,6 @@ def train_epoch(args, model, data, loss_func, optimizer, scheduler, n_iter):
             
         model.zero_grad()
         pred = model('finetune', args.prompt, smiles, feat)
-
         if args.dataset_type == 'multiclass':
             label = label.long()
             loss = torch.cat([loss_func(pred[:, label_idx, :], label[:, label_idx]).unsqueeze(1) 
@@ -91,20 +91,15 @@ def train_epoch(args, model, data, loss_func, optimizer, scheduler, n_iter):
 
 def evaluate_epoch(args, model, data, scaler):
     pred = predict_epoch(args=args, model=model, data=data, scaler=scaler)
-
+    
     label = data.targets()
-
     results = evaluate_predictions(pred, label, args.num_tasks,
                                    args.metric_func, args.dataset_type)
 
-    return results
+    return results, [pred, label]
 
 
 def train_KANO(args, logger):
-    # check in the current task is finished previously, if so, skip
-    if os.path.exists(os.path.join(args.save_path, 'KANO_test_pred.csv')):
-        logger.info(f'current task {args.data_name} has been finished, skip...')
-        return
     args.atom_output = False
 
     df, test_idx, train_data, val_data, test_data = process_data_QSAR(args, logger)
@@ -159,8 +154,8 @@ def train_KANO(args, logger):
     #####################################
     args.prompt = False
     metric_dict = set_collect_metric(args)
-    best_score = float('inf') if args.minimize_score else -float('inf')
-    
+    best_score = float('inf')
+
     # training
     logger.info(f'training...') if args.print else None
     for epoch in range(args.epochs):
@@ -169,9 +164,9 @@ def train_KANO(args, logger):
         if isinstance(scheduler, ExponentialLR):
             scheduler.step()
         if len(val_data) > 0:
-            val_scores = evaluate_epoch(args, model, val_data, None)
+            val_scores, _ = evaluate_epoch(args, model, val_data, None)
         else:
-            val_scores = evaluate_epoch(args, model, train_data, None)
+            val_scores, _ = evaluate_epoch(args, model, train_data, None)
 
         test_pred = predict_epoch(args, model, test_data, scaler)
         test_scores = evaluate_predictions(test_pred, test_data.targets(),
@@ -186,20 +181,85 @@ def train_KANO(args, logger):
             best_score, best_epoch = list(val_scores.values())[0][-1], epoch
             best_test_score = list(test_scores.values())[0][-1]
             save_checkpoint(os.path.join(args.save_path, 'KANO_model.pt'), model, scaler, features_scaler, args) 
-     logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
+    logger.info('Final best performed model in {} epoch, val score: {:.4f}, '
                 'test score: {:.4f}'.format(best_epoch, best_score, best_test_score)) if args.print else None
 
+    model.load_state_dict(torch.load(os.path.join(args.save_path, 
+                                                  'KANO_model.pt'), map_location='cpu')['state_dict'])
+    test_pred = predict_epoch(args, model, test_data, scaler)
     # save results
     pickle.dump(metric_dict, open(os.path.join(args.save_path, 'metric_dict.pkl'), 'wb'))
     df['Prediction'] = None
     df.loc[test_idx, 'Prediction'] = test_pred
     df[df['split']=='test'].to_csv(os.path.join(args.save_path, 'KANO_test_pred.csv'), index=False)
     test_data = df[df['split']=='test']
-    rmse, rmse_cliff = calc_rmse(test_data['y'].values, test_data['Prediction'].values), \
-                       calc_cliff_rmse(y_test_pred=test_data['Prediction'].values,
-                                       y_test=test_data['y'].values,
-                                       cliff_mols_test=test_data['cliff_mol'].values)
-    logger.info('Prediction saved, RMSE: {:.4f}, RMSE_cliff: {:.4f}'.format(rmse, rmse_cliff)) if args.print else None
-
+    if args.dataset_type == 'regression':
+        rmse, rmse_cliff = calc_rmse(test_data['y'].values, test_data['Prediction'].values), \
+                        calc_cliff_rmse(y_test_pred=test_data['Prediction'].values,
+                                        y_test=test_data['y'].values,
+                                        cliff_mols_test=test_data['cliff_mol'].values)
+        logger.info('Prediction saved, RMSE: {:.4f}, RMSE_cliff: {:.4f}'.format(rmse, rmse_cliff)) if args.print else None
+    else:
+        logger.info('Prediction saved') if args.print else None
     logger.handlers.clear()
+
+
+def predict_KANO(args, logger, test_data=None):
+    """
+    Perform inference using a trained KANO model.
+
+    Parameters:
+        args (Namespace): Model arguments and configurations.
+        logger: Logger instance for logging progress.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing input SMILES and predicted values.
+    """
+
+    # Check if the model checkpoint exists
+    model_checkpoint = os.path.join(args.model_path, "KANO_model.pt")
+    if not os.path.exists(model_checkpoint):
+        logger.error(f"Checkpoint file {model_checkpoint} not found.")
+        raise FileNotFoundError(f"Checkpoint file {model_checkpoint} not found.")
+
+    logger.info(f"Loading trained KANO model from {model_checkpoint}...")
+
+    if args.features_scaling:
+        ref_df = pd.read_csv(args.ref_path)
+        _, _, train_data, _, _ = process_data_QSAR(args, logger)
+        features_scaler = train_data.normalize_features(replace_nan_token=0)
+        test_data.normalize_features(features_scaler)
+    else:
+        features_scaler = None
+
+    if args.dataset_type == 'regression':
+        ref_df = pd.read_csv(args.ref_path)
+        ref_y = ref_df['y'].values
+        args.scaler = StandardScaler().fit(ref_y)
+    else:
+        args.pos_weight = 0
+        args.scaler = None
+
+    # Load KANO model
+    model = build_model(args, encoder_name=args.encoder_name)
+    if args.checkpoint_path is not None:
+        model.encoder.load_state_dict(torch.load(args.checkpoint_path, map_location='cpu'), strict=False)
+    if args.step == 'functional_prompt':
+        add_functional_prompt(model, args)
+    if args.cuda:
+        model = model.cuda()
+
+    model.load_state_dict(torch.load(model_checkpoint, map_location='cpu')['state_dict'])
+    
+    if args.step == 'functional_prompt':
+        add_functional_prompt(model, args)
+    if args.cuda:
+        model = model.cuda()
+
+    print(model)
+
+    # Perform inference
+    logger.info("predicting...")
+    pred = predict_epoch(args=args, model=model, data=test_data, scaler=args.scaler)
+    return pred
     

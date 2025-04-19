@@ -6,17 +6,17 @@ from model.layers import ProteinEncoder, MultiHeadCrossAttentionPooling
 from utils import get_fingerprint, get_residue_onehot_encoding
 
 
-class KANO_Prot(nn.Module):
+class GGAP_CPI(nn.Module):
     def __init__(self, args, 
                  classification: bool, 
                  multiclass: bool, 
                  multitask: bool, prompt):
         """
-        Initializes the KANO_Siam.
+        Initializes the GGAP-CPI.
 
         :param classification: Whether the model is a classification model.
         """
-        super(KANO_Prot, self).__init__()
+        super(GGAP_CPI, self).__init__()
         args.atom_output = False
         self.classification = classification
         if self.classification:
@@ -55,20 +55,79 @@ class KANO_Prot(nn.Module):
         cmb_feat, mol_attn = self.cross_attn_pooling(atom_feat, prot_node_feat)
         mol_feat = torch.concat([mol_feat, prot_graph_feat, cmb_feat], dim=1)
         output = self.molecule_encoder.ffn(mol_feat)
-        return [output, None, None, None], [mol_feat, None], prot_graph_feat, [mol_attn, None]
+        return output, mol_feat, prot_graph_feat, mol_attn
 
 
-class KANO_Prot_ablation(nn.Module):
+class GGAP_CPI_joint(nn.Module):
     def __init__(self, args, 
                  classification: bool, 
                  multiclass: bool, 
                  multitask: bool, prompt):
         """
-        Initializes the KANO_Prot_abation.
+        Initializes the GGAP-CPI.
 
         :param classification: Whether the model is a classification model.
         """
-        super(KANO_Prot_ablation, self).__init__()
+        super(GGAP_CPI_joint, self).__init__()
+        args.atom_output = False
+        self.classification = classification
+        if self.classification:
+            self.sigmoid = nn.Sigmoid()
+        self.multiclass = multiclass
+        if self.multiclass:
+            self.multiclass_softmax = nn.Softmax(dim=2)
+        assert not (self.classification and self.multiclass)
+        self.multitask = multitask
+        self.molecule_encoder = MoleculeModel(classification=args.dataset_type == 'classification',
+                                              multiclass=args.dataset_type == 'multiclass',
+                                              pretrain=False)
+        self.molecule_encoder.create_encoder(args, 'CMPNN')
+
+        args.hidden_size = int(args.hidden_size * 3)
+        self.molecule_encoder.create_ffn(args) # for predicting binding affinities
+
+        self.molecule_encoder2 = MoleculeModel(classification=args.dataset_type == 'classification',
+                                              multiclass=args.dataset_type == 'multiclass',
+                                              pretrain=False)
+        # args.output_size = 4
+        args.output_size = 1
+        self.molecule_encoder2.create_ffn(args) # for predicting binding classes
+        
+        args.hidden_size = int(args.hidden_size / 3)
+        
+        self.prompt = prompt
+        if self.prompt:
+            self.molecule_encoder.encoder.encoder.W_i_atom = prompt_generator_output(args)(self.molecule_encoder.encoder.encoder.W_i_atom)
+
+        self.protein_encoder = ProteinEncoder(args)
+        self.cross_attn_pooling = MultiHeadCrossAttentionPooling(300, 
+                                                                 num_heads=args.num_heads,
+                                                                 dropout_rate=args.dropout)
+        
+
+    def forward(self, smiles, batch_prot):
+        mol_feat, atom_feat = self.molecule_encoder.encoder('finetune', False, smiles)
+        prot_node_feat, prot_graph_feat = self.protein_encoder(batch_prot)
+        # mol_feat = torch.concat([mol_feat, prot_graph_feat], dim=1)
+        # mol_attn = None
+        cmb_feat, mol_attn = self.cross_attn_pooling(atom_feat, prot_node_feat)
+        mol_feat = torch.concat([mol_feat, prot_graph_feat, cmb_feat], dim=1)
+        output_reg = self.molecule_encoder.ffn(mol_feat)
+        output_cls = self.molecule_encoder2.ffn(mol_feat)
+        return [output_reg, output_cls], mol_feat, prot_graph_feat, mol_attn
+    
+
+class GGAP_CPI_ablation(nn.Module):
+    def __init__(self, args, 
+                 classification: bool, 
+                 multiclass: bool, 
+                 multitask: bool, prompt):
+        """
+        Initializes the GGAP_CPI_abation.
+
+        :param classification: Whether the model is a classification model.
+        """
+        super(GGAP_CPI_ablation, self).__init__()
         args.atom_output = False
         self.args = args
         self.ablation = args.ablation

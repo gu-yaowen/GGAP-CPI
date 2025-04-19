@@ -1,32 +1,33 @@
-# Overview
+# 🚀 Overview
 ![Views](https://komarev.com/ghpvc/?username=gu-yaowen&label=GGAP-CPI%20views&color=0e75b6&style=flat)
 
 This project is based on our paper "Complex structure-free compound-protein interaction prediction for mitigating activity cliff-induced discrepancies and integrated bioactivity learning". GGAP-CPI stands for **protein Graph and ligand Graph network with Attention Pooling for Compound-Protein Interaction prediction**.
 
-## Table of Contents
+## 📖 Table of Contents
 
-- [Introduction](#introduction)
-- [Dataset](#Dataset)
-- [Model Training](#Model-Training)
-- [Model Inference](#model-inference)
-- [Benchmark Results](#benchmark-results)
-- [Use Your Own Data](#Use-Your-Own-Data)
-- [Citation](#citation)
+- [🎯 Introduction](#🎯-introduction)  
+- [🗄️ Dataset](#🗄️-dataset)  
+- [📦 Dependencies](#📦-dependencies)  
+- [🏋️‍♂️ Model Training](#🏋️‍♂️-model-training)  
+- [🔄 Model Fine‑tuning](#🔄-model-fine‑tuning)  
+- [🔍 Model Inference](#🔍-model-inference)  
+- [📊 Benchmark Results](#📊-benchmark-results)  
+- [🛠️ Use Your Own Data](#🛠️-use-your-own-data)  
+- [📢 Citation](#📢-citation)
 
-## Introduction
 
-Machine learning-based protein-ligand binding affinity prediction is crucial for drug virtual screening. **Structure-free Compound-Protein Interaction (CPI) prediction methods** leverage millions of bioassay measurements, offering greater flexibility than crystal structure-dependent methods. However, **activity cliffs**—minor chemical modifications leading to substantial bioactivity changes—pose significant challenges that are not well-explored in CPI prediction.
+## 🎯 Introduction
 
-In this study, we present **CPI2M**, a large-scale CPI benchmark dataset containing approximately **2 million endpoints** across four activity types (Ki, Kd, EC50, and IC50), specifically annotated for activity cliff data. Additionally, we developed **GGAP-CPI**, a deep learning model that mitigates the impact of activity cliffs through protein feature fusion and activity type-based transfer learning.
+Protein-ligand binding affinity assessment plays a pivotal role in virtual drug screening, yet conventional data-driven approaches rely heavily on limited protein-ligand crystal structures. Structure-free compound-protein interaction (CPI) methods have emerged as competitive alternatives, leveraging extensive bioactivity data to serve as more robust scoring functions. However, these methods often overlook two critical challenges that affect data efficiency and modeling accuracy: **the heterogeneity of bioactivity data** due to differences in bioassay measurements, and **the presence of activity cliffs (ACs)**—small chemical modifications that lead to significant changes in bioactivity, which have not been thoroughly investigated in CPI modeling. 
 
-Our evaluation across three simulated scenarios (general, unknown proteins, and transfer learning) shows that **GGAP-CPI outperforms 12 target-specific and 7 general CPI methods**, excelling in distinguishing bioactivity differences among activity cliff molecules. It also demonstrates comparable performance on **CASF-2016 and LIT-PCBA benchmarks**, highlighting its potential for practical virtual screening.
+To address these challenges, we present **CPI2M**, a large-scale CPI benchmark dataset containing approximately 2 million bioactivity endpoints across four activity types (Ki, Kd, EC50, and IC50) with AC annotations. Moreover, we developed **GGAP-CPI-IntEns**, a complex structure-free deep learning model trained by integrated bioactivity learning and designed to mitigate the impact of ACs on CPI prediction through advanced protein representation modelling and integrated bioactivity learning. 
 
-This study proposes effective strategies for investigating activity cliffs in CPI predictions, enhancing our understanding of structure-activity relationship discontinuities and aiding future CPI methodology development.
+Our comprehensive evaluation demonstrates that GGAP-CPI-IntEns outperforms 12 target-specific and 7 general CPI baselines across four key scenarios (**general CPI prediction, rare protein prediction, transfer learning, and virtual screening**) on seven benchmarks (**CPI2M, MoleculeACE, CASF-2016, MerckFEP, DUD-E, DEKOIS-v2, and LIT-PCBA**). Furthermore, GGAPCPI-IntEns not only delivers stable predictions by distinguishing bioactivity differences between ACs and non-ACs, but also enriches binding pocket residues and interactions, underscoring its applicability to real-world binding affinity assessments and virtual drug screening.
 
-## Dataset
+## 🗄️ Dataset
 ![Dataset](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/main/fig/dataset.jpg)
 
-### Dataset Summary
+### Bioactivity Dataset Summary
 
 | Dataset                | Activity Type | Num.     | Num. Mol. | Num. Prot. | Avg. Bioactivity | Std. Bioactivity | % AC   |
 |------------------------|---------------|----------|-----------|------------|------------------|------------------|--------|
@@ -39,51 +40,78 @@ This study proposes effective strategies for investigating activity cliffs in CP
 |                        | EC50          | 42,301   | 28,818    | 1506       | 6.00             | 1.48             | -      |
 |                        | IC50          | 148,929  | 94,883    | 4562       | 5.69             | 1.43             | -      |
 
-We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for activity cliff estimation, [**CASF-2016**](http://www.pdbbind.org.cn/casf.php) and [**LIT-PCBA**](https://drugdesign.unistra.fr/LIT-PCBA/) for virtual screening estimation. We have organized these datasets and all of them can be downloaded by: 
+We also incorporate [**MoleculeACE**](https://github.com/molML/MoleculeACE) for activity cliff estimation, [**CASF-2016**](http://www.pdbbind.org.cn/casf.php), [**MerckFEP**](https://pubs.acs.org/doi/full/10.1021/acs.jcim.0c00900), [**DUD-E**](https://dude.docking.org/), [**DEKOIS-2**](http://www.dekois.com), and [**LIT-PCBA**](https://drugdesign.unistra.fr/LIT-PCBA/) for virtual screening estimation.
 
 ### Description of CPI2M
 
 - **Source**: **EquiVS** (ChEMBL29, BindingDB, PubChem, Probe&Drugs, IUPHAR/BPS), and **Papyrus** (ChEMBL30, EXCAPE, literature)
 - **Structure**: **CPI2M-main** for model training and internal evaluating, **CPI2M-few** for external evaluating.
 - **Preprocessing**: Including multistep filtering and duplicate cleaning for activity value, unit, ligand, and protein data.
-  
+
+The access of full CPI2M dataset is available at Zenodo: [CPI2M](https://zenodo.org/records/13738981).
+
+## 📦 Dependencies
+
+- `torch==2.4.1+cu121`  
+- `torch-geometric==2.6.1`  
+- `torch-scatter==2.1.2+pt24cu121`  
+- `torch-sparse==0.6.18+pt24cu121`  
+- `torch-spline-conv==1.2.2+pt24cu121`  
+- `fair-esm==2.0.0`  
+- `chemprop==1.6.1`  
+- `DeepPurpose==0.1.5`  
+- `MoleculeACE==2.0.1`  
+- `graphein==1.7.5`  
+- `rdkit==2023.9.1`  
+- `MolVS==0.1.1`  
+- `biopython==1.81`  
+- `scikit-learn==1.3.2`  
+- `networkx==3.1`  
+- `numpy`  
+- `pandas`  
+- `yaml`
+
 
 ## Model
 ![Model Architecture](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/main/fig/model.jpg)
 
 ## Model training
-Available training dataset includes: **CPI2M-main** (noted as 'ki', 'kd', 'ec50', 'ic50', 'integrated'), **MoleculeACE** ('MolACE_CPI_ki', 'MolACE_CPI_ec50'), and **PDBbind** ('PDBbind_all', only for reproducing GGAP-CPI-ft on CASF-2016).
-
 Please run the following command for model training: 
 
 ```
-sh run_bash/run_CPI.sh KANO_Prot {DATA_NAME} train {SEED}
+sh run_bash/run_CPI.sh GGAP_CPI {DATA_NAME} train {SEED}
 ```
 
 parameters include: 1. training dataset; 2. mode (e.g., train); 3. random seed.
 
+## Model finetuning
+To use the pretrained GGAP-CPI-IntEns model (ensemble of 10 GGAP-CPI models) for finetuing on your specific dataset, please run the following command:
+
+```
+for seed in $(seq 0 9); do
+model_path=GGAP_CPI_IntEns_${seed}
+sh run_bash/run_CPI.sh GGAP_CPI {DATA_NAME} finetune {SEED} ${model_path}
+done
+```
+
 ## Model Inference
-We provide pretrained GGAP-CPI model on **CPI2M-main** dataset with different activity type predictor(GGAP-CPI-pKi, -pKd, -pEC50, -pIC50, and -pAC). We generally recommand you to use **GGAP-CPI-pKi**, **GGAP-CPI-pIC50** or **GGAP-CPI-pAC** (AC means pretrained on "integrated" activity data) for inferencing on your own data. 
-
-Available inference dataset includes: **CPI2M-few** ('ki_last', 'kd_last', 'ec50_last', 'ic50_last'), **CASF-2016** ('PDBbind_CASF'), and **LIT-PCBA** ('UNIPROT_ID_LITPCBA').
-
-Taking GGAP-CPI-pIC50 for example, please run the following command for model inference on MoleculeACE-pEC50 dataset:
+Taking "kd.csv" in data folder for example, please run the following command for inferencing:
 
 ```
-sh run_bash/run_CPI.sh KANO_Prot MolACE_CPI_ec50 inference {SEED} ic50/2
+example_data=kd
+example_model_path=GGAP_CPI_IntEns_0
+example_seed=0
+sh run_bash/run_CPI.sh GGAP_CPI ${example_data} inference ${example_seed} ${example_model_path}
 ```
 
-parameters include: 1. inference dataset; 2. mode (e.g., inference, finetune); 3. random seed; 4. pretrained model path (only for KANO_Prot);
+## 📊 Benchmark Results
+The performances of GGAP-CPI and 19 baseline methods are evaluated on CPI2M-main, CPI2M-few, MoleculeACE, CASF-2016, MerckFEP, DUD-E, DEKOIS-2, and LIT-PCBA datasets. For your convience, 
+we add the benchmarking result files for each of them in "benchmark_result" folder.
 
-## Benchmark Results
-The performances of GGAP-CPI and 19 baseline methods are evaluated on CPI2M-main, CPI2M-few, MoleculeACE, CASF-2016, and LIT-PCBA datasets. For your convience, 
-we add the benchmarking result files for each of them in "benchmark_result" folder. \
-Also, to reproduce results for GGAP-CPI, you can run the code:
 
-Please note that there should be mild performance differences with different devices and package versions.
-
-## Use Your Own Data
-To train GGAP-CPI and other baseline models on your own **.CSV** data, which should at least include columns ['smiles', 'Uniprot_id', 'label']. Please run the following commands:
+## 🛠️ Use Your Own Data
+To train GGAP-CPI from scratch on your own **.CSV** data, which should at least include columns ['smiles', 'Uniprot_id', 'label']. Note that the 'Uniprot_id' can be either the protein UniProt ID that can be accessed from Alphafold2 database or the protein PDB file name that have been stored in the "data/PDB" folder. For raw PDB file, we will automatically extract the first chain as the protein structure for training and testing.
+Please run the following commands:
 ```
 # preprocess data
 python process_data.py --dataset {DATA} --task {CPI or QSAR} --split {random or ac} --train_ratio {RATIO} --seed {SEED}
@@ -92,7 +120,12 @@ sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} train {SEED}
 # optional: finetune, inference, ...
 ```
 
-GGAP-CPI is also applicable for classification tasks such as binder/nonbinder classification and drug-target interaction prediction. Please replace ```run_CPI.sh``` by ```run_CPI_cls.sh``` for model training and testing.
+## 📢 Citation
 
-## Citation
-TBD
+@article{GGAP_CPI,
+   author = {Gu, Yaowen and Xia, Song and Ouyang, Qi and Zhang, Yingkai},
+   title = {Complex structure-free compound-protein interaction prediction for mitigating activity cliff-induced discrepancies and integrated bioactivity learning},
+   DOI = {10.26434/chemrxiv-2025-96p6b},
+   year = {2025},
+   type = {Journal Article}
+}

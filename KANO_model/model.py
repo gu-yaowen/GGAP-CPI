@@ -100,7 +100,6 @@ class MoleculeModel(nn.Module):
         """
         if not self.pretrain:
             output = self.ffn(self.encoder(*input))
-
             # Don't apply sigmoid during training b/c using BCEWithLogitsLoss
             if self.classification and not self.training:
                 output = self.sigmoid(output)
@@ -110,7 +109,6 @@ class MoleculeModel(nn.Module):
                     output = self.multiclass_softmax(output) # to get probabilities during evaluation, but not during training as we're using CrossEntropyLoss
         else:
             output = self.ffn(self.encoder(*input))
-
         return output
 
 

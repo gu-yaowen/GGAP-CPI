@@ -27,20 +27,23 @@ def add_args():
     parser.add_argument('--ref_path', type=str,
                         help='Path to CSV file containing refence data for scaling in inference mode',
                         default=None)
+    parser.add_argument('--lig_file', type=str, 
+                        help='Path to H5 file containing ligand data',
+                        default=None)
     parser.add_argument('--model_path', type=str, default=None,
                         help='Path to model checkpoint (.pt file) for inference, retrain, or finetune')
-    parser.add_argument('--dataset_type', type=str, choices=['classification', 'regression', 'multiclass'],
-                        help='Type of dataset')
-    # parser.add_argument('--save_dir', type=str, default=None,
-    #                     help='dir name in exp_results folder where predictions will be saved',
-    #                     default='test')
+    parser.add_argument('--dataset_type', type=str, choices=['classification', 'regression'],
+                        help='Type of dataset. \
+                        Joint mode is only for GGAP-CPI, data should include "Activity_Type" columns')
+    parser.add_argument('--save_dir', type=str, default=None,
+                        help='dir name in exp_results folder where predictions will be saved')
     parser.add_argument('--seed', type=int, default=0,
                         help='Random seed')
     parser.add_argument('--split_type', type=str, default='moleculeACE',
                         choices=['random', 'scaffold_balanced', 'moleculeACE', 'predetermined'],
                         help='Method of splitting the data into training, validation, and test')
     parser.add_argument('--split_sizes', type=float, nargs='+',
-                        default=[0.8, 0.0, 0.2],
+                        default=[0.8, 0.1, 0.1],
                         help='Proportions of data to use for training, validation, and test')
     parser.add_argument('--features_scaling', action='store_true', default=False,
                         help='Turn on scaling of features')                  
@@ -58,15 +61,13 @@ def add_args():
     parser.add_argument('--checkpoint_path', type=str,
                         default='KANO_model/dumped/pretrained_graph_encoder/original_CMPN_0623_1350_14000th_epoch.pkl',
                         help='Path to model checkpoint (.pt file)')
-    # parser.add_argument('--loss', type=str, default='MSE CLS CL',
-    #                     help='Loss function seperated with space. MSE: mean squared error, CLS: cross entropy loss, CL: contrastive loss')
-    parser.add_argument('--loss_weights', type=str, default='1 1 1',
+    parser.add_argument('--loss_weights', type=str, default='1 1',
                         help='Weights for MSE, CLS, and CL loss functions seperated with space'
                         'Note: MSE: mean squared error, CLS: cross entropy loss, CL: contrastive loss'
                         'Set 0 to ignore the specific loss function')
-    parser.add_argument('--siams_num', type=int, default=1, 
-                        help='Number of siamese pairs')
-    parser.add_argument('--batch_size', type=int, default=512,
+    parser.add_argument('--type_thre', type=int, default=4, 
+                        help='Which type of bioassay data to use for training, only for joint mode')
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size')
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of epochs')
@@ -81,8 +82,8 @@ def add_args():
                         help='Metric to optimize during training')
     # model arguments
     # you may not able to change most of these arguments if you use a pretrained model
-    parser.add_argument('--train_model', type=str, default='KANO_Prot', 
-                        choices=['KANO_Prot', 'KANO_ESM'], 
+    parser.add_argument('--train_model', type=str, default='GGAP_CPI', 
+                        choices=['GGAP_CPI', 'KANO_ESM'], 
                         help='KANO_Prot for CPI-type model, KANO_ESM as a baseline model')
     parser.add_argument('--ablation', type=str, default='none', 
                         choices=['none', 'KANO', 'GCN', 'Attn', 'ESM'], 
@@ -116,6 +117,7 @@ def add_args():
         args.cuda = True
     else:
         args.cuda = False
+    args.prompt = False
     args.atom_messages = False
     args.use_input_features = None
     args.bias = False
@@ -129,11 +131,12 @@ def add_args():
     args.smiles_columns = 'smiles'
     args.target_columns = 'y'
     args.output_size = args.num_tasks = 1
-    
-    loss_func = ['MSE', 'CLS', 'CL']
+    args.prot_dir = 'data/Protein_pretrained_feat'
+
+    loss_func = ['MSE', 'CLS']
     loss_wt = args.loss_weights.split(' ')
     args.loss_func_wt = dict(zip(loss_func, loss_wt))
-
+    print(args.loss_func_wt)
     if args.baseline_model in ['DeepDTA', 'GraphDTA', 'MolTrans']:
         args.mode == 'baseline_CPI'
     if args.metric in ['auc', 'prc-auc', 'accuracy', 'r2']:

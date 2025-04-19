@@ -412,30 +412,54 @@ class BatchMolGraph:
             self.a2a = self.b2a[self.a2b]  # num_atoms x max_num_bonds
 
         return self.a2a
-    
-def mol2graph(smiles_batch: List[str],
-              args: Namespace, prompt: bool) -> BatchMolGraph:
+
+from joblib import Parallel, delayed
+from typing import List
+
+def create_mol_graph(smiles, args, prompt):
+    if args.baseline_model == 'KANO':
+        return MolGraph(smiles[0], args, prompt)
+    else:
+        return MolGraph(smiles, args, prompt)
+
+def mol2graph(mol_batch: List[str], args: Namespace, prompt: bool) -> BatchMolGraph:
     """
     Converts a list of SMILES strings to a BatchMolGraph containing the batch of molecular graphs.
 
-    :param smiles_batch: A list of SMILES strings.
+    :param mol_batch: A list of SMILES strings or list of graph objects.
     :param args: Arguments.
+    :param prompt: Prompt for MolGraph.
     :return: A BatchMolGraph containing the combined molecular graph for the molecules
     """
-    mol_graphs = []
-    for smiles in smiles_batch:
-        # if smiles in SMILES_TO_GRAPH:
-        #     mol_graph = SMILES_TO_GRAPH[smiles]
-        # else:
-        if args.baseline_model == 'KANO':
-            mol_graph = MolGraph(smiles[0], args, prompt)
-        else:
-            mol_graph = MolGraph(smiles, args, prompt)
-            # if not args.no_cache:
-            #     SMILES_TO_GRAPH[smiles] = mol_graph
-        mol_graphs.append(mol_graph)
-
+    if isinstance(mol_batch[0], str) or args.mode in ['baseline_CPI', 'baseline_QSAR', 'baseline_inference']:
+        mol_graphs = Parallel(n_jobs=-1)(delayed(create_mol_graph)(smiles, args, prompt) for smiles in mol_batch)
+    else:
+        mol_graphs = mol_batch
     return BatchMolGraph(mol_graphs, args)
+
+# def mol2graph(smiles_batch: List[str],
+#               args: Namespace, prompt: bool) -> BatchMolGraph:
+#     """
+#     Converts a list of SMILES strings to a BatchMolGraph containing the batch of molecular graphs.
+
+#     :param smiles_batch: A list of SMILES strings.
+#     :param args: Arguments.
+#     :return: A BatchMolGraph containing the combined molecular graph for the molecules
+#     """
+#     mol_graphs = []
+#     for smiles in smiles_batch:
+#         # if smiles in SMILES_TO_GRAPH:
+#         #     mol_graph = SMILES_TO_GRAPH[smiles]
+#         # else:
+#         if args.baseline_model == 'KANO':
+#             mol_graph = MolGraph(smiles[0], args, prompt)
+#         else:
+#             mol_graph = MolGraph(smiles, args, prompt)
+#             # if not args.no_cache:
+#             #     SMILES_TO_GRAPH[smiles] = mol_graph
+#         mol_graphs.append(mol_graph)
+
+#     return BatchMolGraph(mol_graphs, args)
 
 # just copy from the another utils.py
 import os
@@ -451,7 +475,7 @@ from yaml import load, Loader
 from argparse import Namespace
 from warnings import simplefilter
 from chemprop.data import StandardScaler
-from chembl_webresource_client.new_client import new_client
+# from chembl_webresource_client.new_client import new_client
 
 
 def define_logging(args, logger):
@@ -530,16 +554,16 @@ def check_molecule(smiles):
         return Chem.MolToSmiles(mol)
 
 
-def chembl_to_uniprot(chembl_id):
-    target = new_client.target
-    res = target.filter(target_chembl_id=chembl_id)
-    if res:
-        components = res[0]['target_components']
-        for component in components:
-            for xref in component['target_component_xrefs']:
-                if xref['xref_src_db'] == 'UniProt':
-                    return xref['xref_id']
-    return None
+# def chembl_to_uniprot(chembl_id):
+#     target = new_client.target
+#     res = target.filter(target_chembl_id=chembl_id)
+#     if res:
+#         components = res[0]['target_components']
+#         for component in components:
+#             for xref in component['target_component_xrefs']:
+#                 if xref['xref_src_db'] == 'UniProt':
+#                     return xref['xref_id']
+#     return None
 
 
 def uniprot_to_pdb(uniprot_id):
@@ -594,8 +618,8 @@ def collect_metric_epoch(args: Namespace, collect_metric: dict, loss: float,
                          val_scores: dict, test_scores: dict):
     collect_metric['loss'].append(loss)
     for metric in args.metric_func:
-        collect_metric[f'val_{metric}'].append(val_scores[metric])
-        collect_metric[f'test_{metric}'].append(test_scores[metric])
+        collect_metric[f'val_{metric}'].append(val_scores[metric][0] if isinstance(val_scores[metric], list) else val_scores[metric])
+        collect_metric[f'test_{metric}'].append(test_scores[metric][0] if isinstance(test_scores[metric], list) else test_scores[metric])
     return collect_metric
 
 

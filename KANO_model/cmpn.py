@@ -63,7 +63,6 @@ class CMPNEncoder(nn.Module):
         self.W_i_atom_new = nn.Linear(self.atom_fdim*2, self.hidden_size, bias=self.bias)
 
     def forward(self, step, mol_graph, features_batch=None, atom_output=False) -> torch.FloatTensor:
-
         f_atoms, f_bonds, a2b, b2a, b2revb, a_scope, atom_num, fg_num, f_fgs, fg_scope = mol_graph.get_components()
         if self.args.cuda or next(self.parameters()).is_cuda:
             f_atoms, f_bonds, a2b, b2a, b2revb, f_fgs = (
@@ -200,22 +199,26 @@ class BatchGRU(nn.Module):
 
 
 class CMPN(nn.Module):
-    def __init__(self, args, atom_fdim = None, bond_fdim = None, graph_input = False):
+    def __init__(self, args, atom_fdim = None, bond_fdim = None, graph_input = False,
+                mol_graphs=None):
         super(CMPN, self).__init__()
         self.args = args
+        self.graph_input = self.args.graph_input
+        # self.mol_graphs = args.lig_graph_dict
         self.atom_fdim = get_atom_fdim(args)
         self.bond_fdim = get_bond_fdim(args) + \
                         (not args.atom_messages) * self.atom_fdim # * 2
         # self.atom_fdim = ATOM_FDIM or get_atom_fdim(args)
         # self.bond_fdim = BOND_FDIM or get_bond_fdim(args) + \
         #                     (not args.atom_messages) * self.atom_fdim # * 2
-        self.graph_input = graph_input
         self.encoder = CMPNEncoder(self.args, self.atom_fdim, self.bond_fdim)
 
     def forward(self, step, prompt: bool, batch,
                 features_batch: List[np.ndarray] = None) -> torch.FloatTensor:
         if not self.graph_input:  # if features only, batch won't even be used
             batch = mol2graph(batch, self.args, prompt)
+        else:
+            batch = batch
         mol, atom = self.encoder.forward(step, batch, features_batch)
         if self.args.baseline_model == 'KANO':
             return mol
