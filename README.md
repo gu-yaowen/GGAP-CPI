@@ -5,15 +5,15 @@ This project is based on our paper "Complex structure-free compound-protein inte
 
 ## 📖 Table of Contents
 
-- [🎯 Introduction](#🎯-introduction)  
-- [🗄️ Dataset](#🗄️-dataset)  
-- [📦 Dependencies](#📦-dependencies)  
-- [🏋️‍♂️ Model Training](#🏋️‍♂️-model-training)  
-- [🔄 Model Fine‑tuning](#🔄-model-fine‑tuning)  
-- [🔍 Model Inference](#🔍-model-inference)  
-- [📊 Benchmark Results](#📊-benchmark-results)  
-- [🛠️ Use Your Own Data](#🛠️-use-your-own-data)  
-- [📢 Citation](#📢-citation)
+- [🎯 Introduction](#🎯-Introduction)  
+- [🗄️ Dataset](#🗄️-Dataset)  
+- [📦 Dependencies](#📦-Dependencies)  
+- [🏋️‍♂️ Model Training](#🏋️‍♂️-Model-Training)  
+- [🔄 Model Fine‑tuning](#🔄-Model-Finetuning)  
+- [🔍 Model Inference](#🔍-Model-Inference)  
+- [📊 Benchmark Results](#📊-Benchmark-Results)  
+- [🛠️ Use Your Own Data](#🛠️-Use-Your-Own-Data)  
+- [📢 Citation](#📢-Citation)
 
 
 ## 🎯 Introduction
@@ -75,7 +75,7 @@ The access of full CPI2M dataset is available at Zenodo: [CPI2M](https://zenodo.
 ## Model
 ![Model Architecture](https://github.com/gu-yaowen/Activity-cliff-prediction/blob/main/fig/model.jpg)
 
-## Model training
+## 🏋️‍♂️ Model Training
 Please run the following command for model training: 
 
 ```
@@ -84,7 +84,7 @@ sh run_bash/run_CPI.sh GGAP_CPI {DATA_NAME} train {SEED}
 
 parameters include: 1. training dataset; 2. mode (e.g., train); 3. random seed.
 
-## Model finetuning
+## 🔄 Model Finetuning
 To use the pretrained GGAP-CPI-IntEns model (ensemble of 10 GGAP-CPI models) for finetuing on your specific dataset, please run the following command:
 
 ```
@@ -94,7 +94,7 @@ sh run_bash/run_CPI.sh GGAP_CPI {DATA_NAME} finetune {SEED} ${model_path}
 done
 ```
 
-## Model Inference
+## 🔍 Model Inference
 Taking "kd.csv" in data folder for example, please run the following command for inferencing:
 
 ```
@@ -122,6 +122,7 @@ sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} train {SEED}
 
 ## 📢 Citation
 
+```
 @article{GGAP_CPI,
    author = {Gu, Yaowen and Xia, Song and Ouyang, Qi and Zhang, Yingkai},
    title = {Complex structure-free compound-protein interaction prediction for mitigating activity cliff-induced discrepancies and integrated bioactivity learning},
@@ -129,3 +130,4 @@ sh run_bash/run_CPI.sh {MODEL} {DATA_NAME} train {SEED}
    year = {2025},
    type = {Journal Article}
 }
+```
